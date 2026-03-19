@@ -1,0 +1,72 @@
+{
+  "projectType": "saas",
+  "projectName": "Dashi",
+  "projectDescription": "An AI-powered desktop assistant with voice input and chat capabilities built with Tauri, Next.js, and Groq API",
+  "theme": "palm",
+  "primaryColor": "#7c7c7c",
+  "lightColor": "#070707",
+  "darkColor": "#c4c4c4",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart",
+          "configuration"
+        ]
+      },
+      {
+        "group": "Features",
+        "pages": [
+          "features/voice-input",
+          "features/chat-interface",
+          "features/navigation",
+          "features/visual-effects"
+        ]
+      },
+      {
+        "group": "Technical Overview",
+        "pages": [
+          "technical/architecture",
+          "technical/tauri-commands",
+          "technical/react-components",
+          "technical/ai-integration"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api/tauri-commands",
+          "api/react-hooks",
+          "api/configuration"
+        ]
+      },
+      {
+        "group": "Development",
+        "pages": [
+          "development/building",
+          "development/testing",
+          "development/troubleshooting"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Voice recording and transcription with Groq Whisper model",
+    "Real-time AI chat responses via Letta agents",
+    "Animated mascot character with interactive states",
+    "Keyboard shortcuts (Cmd+Opt+V for voice, Cmd+Opt+T for chat)",
+    "Desktop application packaged with Tauri",
+    "Streaming response support",
+    "Dual interaction modes (voice and text)"
+  ],
+  "publicApiSurface": [
+    "Tauri command: transcribe - Converts audio to text using Groq API",
+    "Tauri command: process_audio - Processes raw audio samples to WAV format",
+    "React hook: useVoiceRecorder - Manages audio recording and transcription",
+    "Function: generate_response - Streams AI responses from Letta agents",
+    "Component: AnimatedVectorBox - Main UI component with animated mascot"
+  ]
+}
