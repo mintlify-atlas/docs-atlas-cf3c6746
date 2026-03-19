@@ -1,0 +1,242 @@
+---
+description: Explore Tauri backend commands for audio processing and transcription.
+---
+
+# Tauri Commands
+
+Tauri commands enable the frontend to perform system-level operations in Rust. Dashi exposes two primary commands for audio processing and transcription.
+
+## Command Registration
+
+Commands are registered in the Tauri builder with the `invoke_handler`:
+
+```rust
+// src-tauri/src/lib.rs
+mod audio;
+
+use audio::transcribe;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+  tauri::Builder::default()
+    .setup(|app| {
+      if cfg!(debug_assertions) {
+        app.handle().plugin(
+          tauri_plugin_log::Builder::default()
+            .level(log::LevelFilter::Info)
+            .build(),
+        )?;
+      }
+      Ok(())
+    })
+    .invoke_handler(tauri::generate_handler![transcribe])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+}
+```
+
+## process_audio
+
+Converts raw PCM audio samples to WAV format.
+
+```rust
+// src-tauri/src/audio.rs
+#[tauri::command]
+pub fn process_audio(audio: Vec<f32>) -> Result<Vec<u8>, String> {
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: 16000,
+        bits_per_sample: 16,
+        sample_format: SampleFormat::Int,
+    };
+
+    let mut buffer = Cursor::new(Vec::new());
+    {
+        let mut writer = hound::WavWriter::new(&mut buffer, spec)
+            .map_err(|e| e.to_string())?;
+
+        for &sample in &audio {
+            let sample_i16 = (sample * 32767.0) as i16;
+            writer.write_sample(sample_i16).map_err(|e| e.to_string())?;
+        }
+        writer.finalize().map_err(|e| e.to_string())?;
+    }
+
+    Ok(buffer.into_inner())
+}
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `audio` | `Vec<f32>` | Raw PCM audio samples normalized to [-1.0, 1.0] |
+
+### Returns
+
+| Type | Description |
+|------|-------------|
+| `Result<Vec<u8>, String>` | WAV file bytes or error message |
+
+### Audio Specifications
+
+- **Channels**: 1 (mono)
+- **Sample Rate**: 16000 Hz
+- **Bit Depth**: 16-bit
+- **Format**: PCM Integer
+
+<Note>
+The `hound` crate is used for WAV file generation. The sample normalization converts f32 to i16 by multiplying by 32767.
+</Note>
+
+## transcribe
+
+Transcribes audio using Groq's Whisper model.
+
+```rust
+// src-tauri/src/audio.rs
+#[tauri::command]
+pub async fn transcribe(audio: Vec<f32>) -> Result<String, String> {
+  println!("Processing audio...");
+  let wav_data = process_audio(audio)?;
+  println!("Audio processed, WAV size: {} bytes", wav_data.len());
+
+  let request = SpeechToTextRequest::new(wav_data)
+      .temperature(0.7)
+      .language("en")
+      .model("whisper-large-v3");
+
+  let client = get_client().await;
+  let result = client.speech_to_text(request).await;
+
+  match result {
+      Ok(response) => {
+          println!("Groq API Success. Transcription: {}", response.text);
+          Ok(response.text)
+      }
+      Err(e) => {
+          eprintln!("Groq API Error: {:?}", e);
+          Err(format!("Failed to get response from Groq: {}", e))
+      }
+  }
+}
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `audio` | `Vec<f32>` | Raw PCM audio samples normalized to [-1.0, 1.0] |
+
+### Returns
+
+| Type | Description |
+|------|-------------|
+| `Result<String, String>` | Transcribed text or error message |
+
+### Configuration
+
+The transcription uses these settings:
+
+```rust
+let request = SpeechToTextRequest::new(wav_data)
+    .temperature(0.7)      // Controls transcription creativity
+    .language("en")         // English language
+    .model("whisper-large-v3");  // Whisper model
+```
+
+<Expandable title="Available Whisper models">
+
+- `whisper-large-v3` (default)
+- `whisper-large-v3-turbo`
+- `whisper-medium`
+- `whisper-small`
+
+</Expandable>
+
+## Groq Client Setup
+
+The Groq API client is initialized as a singleton using `OnceCell`:
+
+```rust
+// src-tauri/src/audio.rs
+static GROQ_CLIENT: OnceCell<AsyncGroqClient> = OnceCell::const_new();
+
+async fn get_client() -> &'static AsyncGroqClient {
+  GROQ_CLIENT
+      .get_or_init(|| async {
+          let api_key = env::var("GROQ_API_KEY").expect("GROQ_API_KEY env variable not set");
+          AsyncGroqClient::new(api_key.to_string(), None).await
+      })
+      .await
+}
+```
+
+<Warning>
+The `GROQ_API_KEY` environment variable must be set before running the application.
+</Warning>
+
+## SpeechToTextRequest
+
+The request struct defines transcription parameters:
+
+```rust
+// src-tauri/groq_rs/src/message.rs
+pub struct SpeechToTextRequest {
+    pub file: Vec<u8>,
+    pub model: Option<String>,
+    pub temperature: Option<f64>,
+    pub language: Option<String>,
+    pub english_text: bool,
+    pub prompt: Option<String>,
+    pub response_format: Option<String>,
+}
+```
+
+### Builder Methods
+
+```rust
+let request = SpeechToTextRequest::new(wav_data)
+    .temperature(0.7)
+    .language("en")
+    .model("whisper-large-v3")
+    .english_text(false)  // Use transcription endpoint
+    .prompt("Optional context")
+    .response_format("text");
+```
+
+| Method | Type | Default | Description |
+|--------|------|---------|-------------|
+| `new(file)` | `Vec<u8>` | Required | Audio file bytes |
+| `temperature()` | `f64` | None | Controls randomness (0.0-1.0) |
+| `language()` | `&str` | None | Audio language code |
+| `model()` | `&str` | None | Whisper model name |
+| `english_text()` | `bool` | false | Use translation endpoint |
+| `prompt()` | `&str` | None | Optional context prompt |
+| `response_format()` | `&str` | None | "text" or "json" |
+
+## SpeechToTextResponse
+
+The response contains only the transcribed text:
+
+```rust
+// src-tauri/groq_rs/src/message.rs
+pub struct SpeechToTextResponse {
+    pub text: String,
+}
+```
+
+## Error Handling
+
+Commands return `Result<T, String>` for error propagation:
+
+```rust
+match result {
+    Ok(response) => Ok(response.text),
+    Err(e) => Err(format!("Failed to get response from Groq: {}", e)),
+}
+```
+
+<Note>
+The command thread is blocked during transcription, which is acceptable for the current architecture.
+</Note>

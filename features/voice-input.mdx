@@ -1,0 +1,71 @@
+---
+description: Learn how to use voice input to interact with Dashi through speech recognition and transcription.
+---
+
+# Voice Input
+
+Capture your voice and convert it to text using advanced speech recognition. Dashi uses the Groq Whisper model to transcribe your speech in real time.
+
+## Recording Voice
+
+To start recording your voice:
+
+1. Press **Cmd + Option + V** (Mac) or **Ctrl + Alt + V** (Windows/Linux)
+2. Hold the keys while speaking
+3. Release the keys to stop recording and transcribe
+
+<Note>
+Make sure your microphone is enabled in your system settings before using voice input.
+</Note>
+
+## Transcription Process
+
+When you release the voice input keys, Dashi automatically:
+
+1. Stops the audio recording
+2. Converts the audio to WAV format (16kHz mono PCM)
+3. Sends the audio to the Groq Whisper API
+4. Transcribes your speech to text
+5. Displays the transcription in the chat interface
+6. Generates an AI response
+
+The entire process happens seamlessly, requiring no additional steps from you.
+
+## Visual Feedback During Recording
+
+While recording, you'll see visual indicators:
+
+- Animated music notes appear next to Dashi
+- Color transitions between teal (#8CEBE5) and magenta (#D500D8)
+- The recording state is active and visible
+
+<Steps>
+### Step 1: Activate Voice Mode
+Press and hold **Cmd + Option + V** to start recording.
+
+### Step 2: Speak Clearly
+Speak your command or question while holding the keys.
+
+### Step 3: Release to Transcribe
+Release the keys to stop recording and process your speech.
+
+### Step 4: View Results
+Your transcribed text appears in the chat, followed by Dashi's response.
+</Steps>
+
+## Error Handling
+
+If microphone access is denied, Dashi displays an alert message prompting you to enable microphone permissions in your browser or system settings.
+
+## Supported Audio
+
+Voice input works best with:
+
+- Clear, spoken English
+- Minimal background noise
+- Normal speaking pace
+- Direct microphone input (not external speakers)
+
+<Tip>
+For best results, use a quality microphone and speak at a normal pace. The Groq Whisper model handles most accents and speech patterns effectively.
+</Tip>

@@ -1,0 +1,187 @@
+---
+title: 'Installation'
+description: 'Install Dashi and set up your development environment with all required dependencies.'
+keywords: ['installation', 'setup', 'dependencies', 'requirements', 'tauri', 'rust']
+---
+
+Install Dashi on your system and configure the required dependencies to run the desktop application.
+
+<Steps>
+  <Step title="Install system dependencies">
+    
+    Before installing Dashi, ensure you have these dependencies installed on your system:
+
+    **Required dependencies:**
+    - Node.js 20+ 
+    - Rust 1.77.2+ (includes cargo)
+    - System audio drivers and microphone access
+    - Tauri CLI dependencies (Rust and platform-specific build tools)
+
+    <Tabs>
+      <Tab title="macOS">
+      ```bash
+      # Install Homebrew if you don't have it
+      /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"
+
+      # Install Rust and additional dependencies
+      brew install rust
+
+      # Install Xcode Command Line Tools
+      xcode-select --install
+      ```
+      </Tab>
+      <Tab title="Linux">
+      ```bash
+      # Install Rust
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+      # Install webkit2gtk (required for Tauri on Linux)
+      sudo apt update
+      sudo apt install libwebkit2gtk-4.1-dev \
+        build-essential \
+        curl \
+        wget \
+        file \
+        libxdo-dev \
+        libssl-dev \
+        libayatana-appindicator3-dev \
+        librsvg2-dev
+      ```
+      </Tab>
+      <Tab title="Windows">
+      ```powershell
+      # Install Rust using rustup
+      winget install Rustlang.Rust.MSVC
+
+      # Install Microsoft Visual C++ Redistributable
+      # Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+      # Install WebView2 (usually included with Windows 10+)
+      # Verify via: winget list Microsoft.EdgeWebView2Runtime
+      ```
+      </Tab>
+    </Tabs>
+
+    <Tip>
+      After installing Rust, restart your terminal to ensure the PATH is updated correctly.
+    </Tip>
+
+  </Step>
+
+  <Step title="Clone the repository">
+
+    Clone the Dashi repository and navigate to the project directory:
+
+    ```bash
+    git clone <repository-url>
+    cd dashi
+    ```
+
+  </Step>
+
+  <Step title="Install frontend dependencies">
+
+    Install the Node.js dependencies for the React/Next.js frontend:
+
+    ```bash
+    npm install
+    # or
+    bun install
+    ```
+
+    This installs all dependencies defined in `package.json`, including:
+
+    - **next**: React framework for the UI
+    - **react** & **react-dom**: React core libraries
+    - **framer-motion**: Animation library for the mascot
+    - **lottie-react**: Lottie animation integration
+    - **@letta-ai/letta-client**: Letta AI client for chat responses
+    - **@tauri-apps/api**: Tauri API for desktop integration
+    - **lucide-react**: Icon library
+
+  </Step>
+
+  <Step title="Install Rust dependencies">
+
+    Navigate to the Tauri backend directory and install Rust dependencies:
+
+    ```bash
+    cd src-tauri
+    cargo build
+    cd ..
+    ```
+
+    This compiles the Rust backend including:
+
+    - **tauri**: Desktop application framework
+    - **groq_api_rust**: Groq API integration for speech-to-text
+    - **hound**: WAV audio file processing
+    - **tokio**: Async runtime for Rust
+    - **dotenv**: Environment variable management
+
+  </Step>
+
+  <Step title="Configure Tauri CLI">
+
+    Install the Tauri CLI as a development dependency:
+
+    ```bash
+    npm install --save-dev @tauri-apps/cli
+    ```
+
+    The Tauri CLI is already configured in `package.json` and referenced in `tauri.conf.json`.
+
+  </Step>
+</Steps>
+
+## Installation verification
+
+Verify your installation by checking that all components are correctly installed:
+
+```bash
+# Check Node.js version
+node --version  # Should be 20+
+
+# Check Rust/Cargo version
+cargo --version  # Should be 1.77.2+
+
+# Verify Tauri CLI
+npx tauri --version
+
+# Check that dependencies are installed
+npm list --depth=0
+```
+
+<Warning>
+    If you encounter build errors related to Tauri, ensure your system has the required platform-specific dependencies installed. See the [Tauri prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites) for detailed setup instructions.
+</Warning>
+
+## Project structure
+
+After installation, your project structure should look like this:
+
+```
+dashi/
+├── src/
+│   ├── app/              # Next.js app directory
+│   ├── components/       # React components
+│   ├── lib/             # Utility libraries (TTS, Letta)
+│   └── utils/           # Helper functions
+├── src-tauri/           # Rust backend
+│   ├── src/
+│   │   ├── main.rs     # Tauri entry point
+│   │   ├── lib.rs      # Tauri library
+│   │   └── audio.rs    # Audio processing & transcription
+│   ├── capabilities/   # Tauri permissions
+│   └── tauri.conf.json # Tauri configuration
+├── public/              # Static assets (animations, images)
+├── package.json         # Frontend dependencies
+└── next.config.ts       # Next.js configuration
+```
+
+## Next steps
+
+Once installation is complete:
+
+- [/quickstart](/quickstart) - Start using Dashi with voice and chat modes
+- [/configuration](/configuration) - Set up API keys and environment variables

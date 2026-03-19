@@ -1,0 +1,92 @@
+---
+description: Understand how the text chat interface works, including message display and streaming responses.
+---
+
+# Chat Interface
+
+Send text messages to Dashi and receive streaming AI responses through an intuitive chat interface. The chat mode provides a clean, conversational experience for text-based interactions.
+
+## Accessing Chat Mode
+
+Press **Cmd + Option + T** (Mac) or **Ctrl + Alt + T** (Windows/Linux) to activate chat mode. This switches Dashi from voice mode to the text chat interface.
+
+## Sending Messages
+
+To send a message:
+
+1. Type your message in the input field
+2. Press **Enter** or click **Send**
+3. Dashi processes your message and streams the response
+
+<CardGroup>
+<Card title="User Messages" description="Your messages appear on the right side with a teal (#8CEBE5) background and dark text." />
+
+<Card title="AI Responses" description="Dashi's responses appear on the left side with a magenta (#D500D8) background and white text." />
+
+<Card title="Streaming" description="Responses stream in real-time, displaying character by character as they're generated." />
+</CardGroup>
+
+## Message Display
+
+The chat interface displays messages in a scrollable conversation view:
+
+- User messages are right-aligned
+- AI messages are left-aligned
+- Messages are rounded with 12px border radius
+- Each message has 8px vertical padding and 12px horizontal padding
+- Messages wrap automatically to fit within the chat width
+
+## Response Generation
+
+When you send a message, Dashi:
+
+1. Sends your input to the Letta AI agent
+2. Streams the response character by character
+3. Updates the chat interface in real-time
+4. Continues until the complete response is generated
+
+The streaming effect provides immediate visual feedback, showing you that Dashi is actively responding.
+
+## Chat Window Features
+
+The chat interface includes:
+
+<Tabs>
+<TabItem label="Input Field">
+The text input field allows you to type messages with a semi-transparent background (20% opacity white). Placeholder text reads "Type your message..."
+</TabItem>
+
+<TabItem label="Send Button">
+Click the teal Send button with bold text to submit your message. The button has 8px border radius and dark text.
+</TabItem>
+
+<TabItem label="Scrollable Area">
+The messages area is scrollable with 420px height, allowing you to view the full conversation history.
+</TabItem>
+
+<TipItem label="Visual Polish">
+When recording is active in chat mode, the chatbox gains a gradient border with a glowing effect using colors #D500D8 and #8CEBE5.
+</TipItem>
+</Tabs>
+
+## Conversation History
+
+All messages are maintained in the chat session, allowing you to:
+
+- Scroll back through previous messages
+- Reference earlier parts of the conversation
+- Continue the context seamlessly
+
+<Note>
+The chat interface maintains a full conversation history during your session. Press Escape to reset the interface at any time.
+</Note>
+
+## Integration with Voice
+
+Voice input seamlessly integrates with the chat interface:
+
+- Voice transcriptions appear as user messages
+- AI responses from voice input display identically to text chat responses
+- The chat interface supports both voice and text interactions in the same conversation
+
+This unified approach means you can switch between voice and text as needed without losing context.

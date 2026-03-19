@@ -1,0 +1,362 @@
+---
+title: 'Building'
+description: 'Build and compile Dashi from source for development and production environments.'
+keywords: ['building', 'compiling', 'development', 'production', 'tauri', 'next.js']
+---
+
+Build the Dashi desktop application using the available npm scripts and Tauri CLI commands. This guide covers both development and production build processes.
+
+## Prerequisites
+
+Ensure you have these installed before building:
+
+- **Node.js 20+** - Required for Next.js frontend
+- **Rust 1.77.2+** - Required for Tauri backend
+- **Tauri CLI** - Desktop application framework
+- **System dependencies** - Platform-specific build tools
+
+<Callout variant="info">
+  Refer to the [/installation](/installation) guide for detailed setup instructions for your operating system.
+</Callout>
+
+## Development build
+
+Launch Dashi in development mode with hot-reload and debugging enabled.
+
+### Development commands
+
+The `package.json` defines these development scripts:
+
+```json package.json
+{
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  }
+}
+```
+
+<Steps>
+  <Step title="Start the Next.js development server">
+
+    Run the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    This starts:
+    - Next.js with Turbopack for faster rebuilds
+    - Development server at `http://localhost:3000`
+    - Hot module replacement for live updates
+
+  </Step>
+
+  <Step title="Start Tauri development mode">
+
+    Open a new terminal and run:
+
+    ```bash
+    npm run tauri dev
+    ```
+
+    The `tauri.conf.json` configuration specifies:
+
+    ```json src-tauri/tauri.conf.json
+    {
+      "build": {
+        "devUrl": "http://localhost:3000",
+        "beforeDevCommand": "bun dev"
+      }
+    }
+    ```
+
+    This command:
+    - Runs `bun dev` automatically
+    - Opens the Tauri desktop window
+    - Connects to the Next.js dev server
+    - Provides hot-reload for both frontend and backend
+
+  </Step>
+
+  <Step title="Verify the build">
+
+    When both commands complete successfully, you should see:
+    - Terminal 1: Next.js dev server running
+    - Terminal 2: Tauri window opened and connected
+    - No build errors or missing dependencies
+
+    <Note>
+      The development window runs with debug assertions enabled and logging plugin active. Check the console for detailed runtime information.
+    </Note>
+
+  </Step>
+</Steps>
+
+## Production build
+
+Build an optimized, standalone desktop application for distribution.
+
+### Build process
+
+<Steps>
+  <Step title="Build the frontend">
+
+    Compile the Next.js application for production:
+
+    ```bash
+    npm run build
+    ```
+
+    This generates:
+    - Optimized React bundle
+    - Static assets in the `out` directory
+    - Minified JavaScript and CSS
+
+    The `tauri.conf.json` specifies the output location and command:
+
+    ```json src-tauri/tauri.conf.json
+    {
+      "build": {
+        "frontendDist": "../out",
+        "beforeBuildCommand": "bun build"
+      }
+    }
+    ```
+
+  </Step>
+
+  <Step title="Build the Tauri application">
+
+    Create the standalone desktop executable:
+
+    ```bash
+    npm run tauri build
+    ```
+
+    This performs:
+    1. Runs `bun build` automatically
+    2. Compiles the Rust backend
+    3. Packages the application into a distributable format
+    4. Signs the application (if configured)
+
+    <Callout variant="warn">
+      The first full production build can take several minutes as it compiles all Rust dependencies.
+    </Callout>
+
+  </Step>
+
+  <Step title="Locate the build output">
+
+    Find the built application in:
+
+    ```bash
+    src-tauri/target/release/bundle/
+    ```
+
+    Build formats include:
+    - **macOS**: `.app` bundle in `dmg/` or `app/` directory
+    - **Linux**: `.deb`, `.AppImage` formats
+    - **Windows**: `.exe` installer in `msi/` directory
+
+    The bundle configuration in `tauri.conf.json` specifies:
+
+    ```json src-tauri/tauri.conf.json
+    {
+      "bundle": {
+        "active": true,
+        "targets": "all",
+        "icon": [
+          "icons/32x32.png",
+          "icons/128x128.png",
+          "icons/128x128@2x.png",
+          "icons/icon.icns",
+          "icons/icon.ico"
+        ]
+      }
+    }
+    ```
+
+  </Step>
+</Steps>
+
+### Production server
+
+Test the production build locally:
+
+<Steps>
+  <Step title="Start the production server">
+
+    Run the built application:
+
+    ```bash
+    npm run start
+    ```
+
+    This starts the Next.js production server serving the optimized build.
+
+  </Step>
+
+  <Step title="Access the application">
+
+    Open `http://localhost:3000` in your browser to verify the production build works correctly.
+
+    <Note>
+      This serves the web version only. For the full desktop experience, use the Tauri built executable.
+    </Note>
+
+  </Step>
+</Steps>
+
+## Build artifacts and cleanup
+
+### Clean build artifacts
+
+Remove generated build files:
+
+```bash
+# Clean Next.js build artifacts
+rm -rf .next out
+
+# Clean Rust build artifacts
+cd src-tauri
+cargo clean
+cd ..
+```
+
+<Callout variant="danger">
+  Running `cargo clean` removes all compiled binaries and requires a full rebuild on the next build.
+</Callout>
+
+### Verify Rust dependencies
+
+Check the Rust dependency versions in `src-tauri/Cargo.toml`:
+
+```toml src-tauri/Cargo.toml
+[dependencies]
+tauri = { version = "2.5.0", features = [] }
+groq_api_rust = { path = "./groq_rs" }
+hound = "3.5.1"
+tokio = "1.45.1"
+once_cell = "1.21.3"
+dotenv = "0.15.0"
+```
+
+Ensure your Rust version meets the requirement:
+
+```bash
+rustc --version
+# Should output: rustc 1.77.2 or later
+```
+
+## Troubleshooting builds
+
+### Next.js build failures
+
+<AccordionGroup>
+  <Accordion title="Module resolution errors">
+
+    ```bash
+    Error: Module not found: Can't resolve '@/components/ui'
+    ```
+
+    solution: Verify the path alias is configured correctly in `tsconfig.json`:
+
+    ```json tsconfig.json
+    {
+      "compilerOptions": {
+        "paths": {
+          "@/*": ["./src/*"]
+        }
+      }
+    }
+    ```
+
+  </Accordion>
+
+  <Accordion title="TypeScript compilation errors">
+
+    ```bash
+    TS2307: Cannot find module '@tauri-apps/api'
+    ```
+
+    Solution: Ensure Tauri CLI is installed:
+
+    ```bash
+    npm install --save-dev @tauri-apps/cli
+    ```
+
+  </Accordion>
+</AccordionGroup>
+
+### Tauri build failures
+
+<AccordionGroup>
+  <Accordion title="GROQ_API_KEY not found">
+
+    ```bash
+    thread 'main' panicked at 'GROQ_API_KEY env variable not set'
+    ```
+
+    Solution: Create a `.env` file in the project root:
+
+    ```bash
+    echo "GROQ_API_KEY=your_api_key_here" > .env
+    ```
+
+  </Accordion>
+
+  <Accordion title="Rust compilation errors">
+
+    ```bash
+    error: linking with `cc` failed
+    ```
+
+    Solution: Install platform-specific build tools:
+
+    - **macOS**: Install Xcode Command Line Tools
+    ```bash
+    xcode-select --install
+    ```
+
+    - **Linux**: Install build essentials
+    ```bash
+    sudo apt install build-essential
+    ```
+
+  </Accordion>
+
+  <Accordion title="WebView runtime missing">
+
+    ```bash
+    Error: WebView2 runtime not found
+    ```
+
+    Solution: Install WebView2 on Windows:
+
+    ```powershell
+    winget install Microsoft.EdgeWebView2Runtime
+    ```
+
+  </Accordion>
+</AccordionGroup>
+
+## Linting
+
+Run the linter to check code quality:
+
+```bash
+npm run lint
+```
+
+This uses ESLint with Next.js configuration to identify potential issues in your codebase.
+
+## Next steps
+
+After building Dashi:
+
+- [/development/testing](/development/testing) - Test the application functionality
+- [/development/troubleshooting](/development/troubleshooting) - Resolve common issues
+- [/features/voice-input](/features/voice-input) - Explore voice input features

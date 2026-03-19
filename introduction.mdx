@@ -1,0 +1,58 @@
+---
+title: 'Introduction'
+description: 'Learn about Dashi, an AI-powered desktop assistant with voice input and chat capabilities.'
+keywords: ['dashi', 'ai assistant', 'voice input', 'chat interface', 'tauri', 'desktop app']
+---
+
+Dashi is an AI-powered desktop assistant that combines voice input and chat capabilities in a sleek, animated interface. Built with modern web technologies and packaged as a native desktop application, Dashi provides seamless interaction with AI through two primary modes: voice conversations and text-based chat.
+
+<CardGroup>
+  <Card title="Voice mode" icon="mic">
+    Press <strong>Cmd+Opt+V</strong> to record your voice. Dashi transcribes your speech using Groq's Whisper model and responds with streaming AI-generated content.
+  </Card>
+  <Card title="Chat mode" icon="message-square">
+    Press <strong>Cmd+Opt+T</strong> to open the chat interface. Type your message and receive real-time responses from Letta AI agents.
+  </Card>
+  <Card title="Interactive mascot" icon="sparkles">
+    Dashi features an animated mascot character that responds to your interactions with smooth animations and visual effects.
+  </Card>
+</CardGroup>
+
+## What makes Dashi unique
+
+<Columns cols={2}>
+  <div>
+    ### Native desktop experience
+    Built with Tauri, Dashi runs as a native desktop application with minimal overhead, providing smooth performance and system integration.
+  </div>
+  <div>
+    ### Dual interaction modes
+    Switch seamlessly between voice and text input depending on your preference and environment. Both modes connect to the same AI backend.
+  </div>
+  <div>
+    ### Streaming responses
+    Watch Dashi's responses appear in real-time as they're generated, creating a natural conversational flow.
+  </div>
+  <div>
+    ### Voice transcription
+    Powered by Groq's Whisper large-v3 model, Dashi accurately transcribes your speech with low latency.
+  </div>
+</Columns>
+
+## Architecture overview
+
+Dashi combines three main technologies:
+
+- **Tauri**: Provides the desktop application framework and bridges the JavaScript frontend with Rust backend
+- **Next.js**: Powers the React-based user interface with modern web technologies
+- **AI Integration**: Uses Groq API for speech-to-text and Letta AI agents for intelligent responses
+
+The Rust backend handles audio processing and API calls to Groq, while the React frontend manages the user interface, animations, and state management. This hybrid architecture leverages the strengths of both web and native development.
+
+## Next steps
+
+Ready to get started with Dashi? Follow these guides:
+
+- [/installation](/installation) - Install and set up Dashi on your system
+- [/quickstart](/quickstart) - Get up and running with your first conversation
+- [/configuration](/configuration) - Configure environment variables and settings

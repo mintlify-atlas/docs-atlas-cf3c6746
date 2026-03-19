@@ -1,0 +1,827 @@
+---
+title: 'Troubleshooting'
+description: 'Resolve common issues with Dashi including build failures, API errors, and development problems.'
+keywords: ['troubleshooting', 'errors', 'debugging', 'fixes', 'solutions', 'grop api key']
+---
+
+Resolve common issues encountered when building, running, or developing Dashi.
+
+## Environment configuration issues
+
+### GROQ_API_KEY not set
+
+<Callout variant="error">
+  **Error**: `thread 'main' panicked at 'GROQ_API_KEY env variable not set'`
+</Callout>
+
+**Cause**: The Groq API key environment variable is missing or not loaded.
+
+<Steps>
+  <Step title="Check for .env file">
+
+    Verify the `.env` file exists in the project root:
+
+    ```bash
+    ls -la .env
+    ```
+
+  </Step>
+
+  <Step title="Create or update .env file">
+
+    Add the API key to `.env`:
+
+    ```bash
+    echo "GROQ_API_KEY=your_actual_api_key_here" > .env
+    ```
+
+    <Warning>
+      Replace `your_actual_api_key_here` with your valid Groq API key from [console.groq.com](https://console.groq.com).
+    </Warning>
+
+  </Step>
+
+  <Step title="Verify dotenv is loaded">
+
+    Check that `src-tauri/src/main.rs` loads environment variables:
+
+    ```rust src-tauri/src/main.rs
+    use dotenv::dotenv;
+
+    fn main() {
+      dotenv().ok();
+      app_lib::run();
+    }
+    ```
+
+  </Step>
+
+  <Step title="Restart the application">
+
+    Restart the development server to reload environment variables:
+
+    ```bash
+    npm run tauri dev
+    ```
+
+  </Step>
+</Steps>
+
+### Environment variables not loading
+
+If environment variables aren't being recognized despite a `.env` file being present:
+
+<AccordionGroup>
+  <Accordion title="File location is incorrect">
+
+    The `.env` file must be in the project root directory (same directory as `package.json`).
+
+    Verify the location:
+    ```bash
+    pwd
+    # Should show the project root
+    ls .env
+    ```
+
+  </Accordion>
+
+  <Accordion title="Variable name is misspelled">
+
+    Environment variables are case-sensitive. Ensure exact spelling:
+
+    ✅ Correct: `GROQ_API_KEY`
+    ❌ Incorrect: `groq_api_key`, `GROQ_KEY`, `GROQ_API`
+
+  </Accordion>
+
+  <Accordion title="Server needs restart">
+
+    Environment variables are loaded at application startup. Restart after changes:
+
+    ```bash
+    # Stop the current server
+    Ctrl+C
+
+    # Start the server again
+    npm run tauri dev
+    ```
+
+  </Accordion>
+</AccordionGroup>
+
+## Microphone and audio issues
+
+### Microphone permission denied
+
+<Callout variant="error">
+  **Error**: "Microphone access denied" or recording doesn't start
+</Callout>
+
+**Cause**: Dashi doesn't have permission to access the microphone.
+
+<Steps>
+  <Step title="Check system microphone permissions">
+
+    <Tabs>
+      <Tab title="macOS">
+
+        Open **System Settings** → **Privacy & Security** → **Microphone**
+
+        Ensure Dashi has permission toggled on.
+
+      </Tab>
+
+      <Tab title="Linux">
+
+        Check browser/app permissions:
+        - **Firefox**: Preferences → Privacy & Security → Permissions
+        - **Chromium**: Settings → Privacy and security → Site Settings → Microphone
+
+      </Tab>
+
+      <Tab title="Windows">
+
+        Open **Settings** → **Privacy** → **Microphone**
+
+        Ensure "Allow apps to access your microphone" is enabled and Dashi is listed.
+
+      </Tab>
+    </Tabs>
+
+  </Step>
+
+  <Step title="Restart the application">
+
+    After granting permissions, restart Dashi:
+
+    ```bash
+    npm run tauri dev
+    ```
+
+  </Step>
+
+  <Step title="Test the microphone">
+
+    Verify the microphone works with other applications:
+    - Record a voice memo
+    - Test with system voice recorder
+    - Check with online microphone test tools
+
+  </Step>
+</Steps>
+
+### Audio transcription fails
+
+<Callout variant="error">
+  **Error**: `Failed to get response from Groq: [error details]`
+</Callout>
+
+**Cause**: Groq API request failed due to authentication, network, or audio format issues.
+
+<AccordionGroup>
+  <Accordion title="Invalid API key">
+
+    Verify your API key is valid and not expired.
+
+    ```bash
+    # Check your API key at console.groq.com
+    # Ensure it's copied correctly without extra spaces
+    cat .env | grep GROQ_API_KEY
+    ```
+
+  </Accordion>
+
+  <Accordion title="Network connectivity">
+
+    Check your internet connection:
+
+    ```bash
+    # Test connectivity to Groq API
+    curl -I https://api.groq.com
+    ```
+
+    Ensure you can reach external APIs.
+
+  </Accordion>
+
+  <Accordion title="Audio format mismatch">
+
+    The audio processor requires specific format:
+
+    ```rust src-tauri/src/audio.rs
+    let spec = hound::WavSpec {
+        channels: 1,           // Mono
+        sample_rate: 16000,    // 16kHz
+        bits_per_sample: 16,   // 16-bit
+        sample_format: SampleFormat::Int,
+    };
+    ```
+
+    Check console for audio processing errors:
+    - "Audio processed, WAV size: X bytes" indicates successful conversion
+    - If this log doesn't appear, audio capture failed
+
+  </Accordion>
+
+  <Accordion title="API rate limit exceeded">
+
+    Groq API has rate limits. If you're testing extensively, you may hit the limit.
+
+    Solution:
+    - Wait a few minutes before retrying
+    - Check your Groq console for usage statistics
+    - Consider upgrading your API tier if needed
+
+  </Accordion>
+</AccordionGroup>
+
+### No audio input detected
+
+If voice recording activates but no audio is captured:
+
+<Steps>
+  <Step title="Check system audio input device">
+
+    Verify the correct microphone is selected in system settings:
+    - **macOS**: System Settings → Sound → Input
+    - **Linux**: PulseAudio Control → Input Devices
+    - **Windows**: Settings → System → Sound → Input device
+
+  </Step>
+
+  <Step title="Test audio capture in browser">
+
+    Open a browser and test audio capture:
+    ```html
+    <input type="file" accept="audio/*" capture="microphone">
+    ```
+
+    If browser capture works, the issue may be Tauri-specific.
+
+  </Step>
+
+  <Step title="Check for audio driver issues">
+
+    Update or reinstall audio drivers:
+    - **macOS**: Update macOS for latest audio drivers
+    - **Linux**: `sudo apt update && sudo apt upgrade`
+    - **Windows**: Update drivers via Device Manager
+
+  </Step>
+</Steps>
+
+## Tauri build failures
+
+### Rust compilation errors
+
+<Callout variant="error">
+  **Error**: `error: linking with 'cc' failed` or similar compilation errors
+</Callout>
+
+<Steps>
+  <Step title="Update Rust toolchain">
+
+    Ensure you have the latest Rust version:
+
+    ```bash
+    rustup update
+    rustup default stable
+    ```
+
+    Verify version meets requirement (1.77.2+):
+
+    ```bash
+    rustc --version
+    ```
+
+  </Step>
+
+  <Step title="Install platform-specific dependencies">
+
+    <Tabs>
+      <Tab title="macOS">
+
+        Install Xcode Command Line Tools:
+
+        ```bash
+        xcode-select --install
+        ```
+
+        Accept the license agreement when prompted.
+
+      </Tab>
+
+      <Tab title="Linux">
+
+        Install build tools:
+
+        ```bash
+        sudo apt update
+        sudo apt install build-essential \
+          libwebkit2gtk-4.1-dev \
+          curl \
+          wget \
+          file \
+          libxdo-dev \
+          libssl-dev \
+          libayatana-appindicator3-dev \
+          librsvg2-dev
+        ```
+
+      </Tab>
+
+      <Tab title="Windows">
+
+        Install Visual Studio Build Tools:
+        - Download from [visualstudio.microsoft.com](https://visualstudio.microsoft.com/downloads/)
+        - Select "Desktop development with C++" workload
+
+        Or use winget:
+
+        ```powershell
+        winget install Microsoft.VisualStudio.2022.BuildTools
+        ```
+
+      </Tab>
+    </Tabs>
+
+  </Step>
+
+  <Step title="Clean and rebuild">
+
+    Remove cached build artifacts:
+
+    ```bash
+    cd src-tauri
+    cargo clean
+    cd ..
+    npm run tauri build
+    ```
+
+  </Step>
+</Steps>
+
+### Tauri CLI not found
+
+<Callout variant="error">
+  **Error**: `tauri: command not found`
+</Callout>
+
+**Cause**: Tauri CLI is not installed or not in PATH.
+
+<Steps>
+  <Step title="Install Tauri CLI">
+
+    Install the CLI as a development dependency:
+
+    ```bash
+    npm install --save-dev @tauri-apps/cli
+    ```
+
+  </Step>
+
+  <Step title="Use npx to run Tauri">
+
+    If installation issues persist, use `npx`:
+
+    ```bash
+    npx @tauri-apps/cli dev
+    npx @tauri-apps/cli build
+    ```
+
+  </Step>
+
+  <Step title="Verify package.json scripts">
+
+    Ensure `package.json` has Tauri scripts:
+
+    ```bash
+    npm pkg get scripts
+    ```
+
+    The scripts are defined in the package.json:
+    ```json
+    {
+      "scripts": {
+        "dev": "next dev --turbopack",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+      }
+    }
+    ```
+
+  </Step>
+</Steps>
+
+### WebView runtime missing (Windows)
+
+<Callout variant="error">
+  **Error**: `WebView2 runtime not found`
+</Callout>
+
+**Cause**: Windows WebView2 is not installed.
+
+<Steps>
+  <Step title="Install WebView2 runtime">
+
+    Download and install from Microsoft:
+    ```powershell
+    winget install Microsoft.EdgeWebView2Runtime
+    ```
+
+    Or download from: [aka.ms/webview2](https://developer.microsoft.com/microsoft-edge/webview2/)
+
+  </Step>
+
+  <Step title="Restart the application">
+
+    After installation, restart Dashi:
+
+    ```bash
+    npm run tauri dev
+    ```
+
+  </Step>
+</Steps>
+
+## Letta API issues
+
+### Letta agent not responding
+
+<Callout variant="error">
+  **Error**: Chat responses fail to appear or take too long
+</Callout>
+
+**Cause**: Letta agent service is not running or is unreachable.
+
+<Steps>
+  <Step title="Check Letta server status">
+
+    Verify the Letta server is accessible:
+
+    ```bash
+    curl http://localhost:8283
+    ```
+
+    If the connection is refused, the Letta server is not running.
+
+  </Step>
+
+  <Step title="Start the Letta server">
+
+    Start the Letta agent server on port 8283:
+
+    ```bash
+    # Start your Letta server
+    # Command depends on your Letta setup
+    ```
+
+    Refer to your Letta installation documentation for startup commands.
+
+  </Step>
+
+  <Step title="Verify configuration">
+
+    Check the Letta client configuration in `src/lib/letta.ts`:
+
+    ```typescript
+    export const letta_client = new LettaClient({
+      baseUrl: "http://localhost:8283",
+    });
+    ```
+
+    Ensure the port matches your Letta server configuration.
+
+  </Step>
+
+  <Step title="Test with curl">
+
+    Test the Letta API directly:
+
+    ```bash
+    curl -X POST http://localhost:8283/v1/agents/messages \
+      -H "Content-Type: application/json" \
+      -d '{"agent_id": "agent-4d2e89d5-098b-469e-abe7-a671b4fed302", "messages": [{"role": "user", "content": "hello"}]}'
+    ```
+
+  </Step>
+</Steps>
+
+### Agent ID invalid
+
+<Callout variant="error">
+  **Error**: `Agent not found` or `Invalid agent ID`
+</Callout>
+
+**Cause**: The agent ID in `src/lib/letta.ts` doesn't match a valid agent.
+
+<Steps>
+  <Step title="Verify agent ID">
+
+    Check your agent ID in the Letta dashboard or console:
+
+    ```typescript src/lib/letta.ts
+    const agent_id = "agent-4d2e89d5-098b-469e-abe7-a671b4fed302";
+    ```
+
+  </Step>
+
+  <Step title="Create a new agent if needed">
+
+    If the agent doesn't exist, create one in your Letta instance and update the ID.
+
+  </Step>
+
+  <Step title="Restart the application">
+
+    After updating the agent ID, restart Dashi to apply changes.
+
+  </Step>
+</Steps>
+
+## Development mode issues
+
+### Hot-reload not working
+
+If changes to the frontend or backend aren't reflecting automatically:
+
+<AccordionGroup>
+  <Accordion title="Next.js hot-reload not updating">
+
+    The `dev` command uses Turbopack for faster builds:
+
+    ```bash
+    npm run dev
+    ```
+
+    Try restarting the dev server if changes don't appear:
+    ```bash
+    Ctrl+C
+    npm run dev
+    ```
+
+  </Accordion>
+
+  <Accordion title="Tauri window not reloading">
+
+    The Tauri dev mode should have hot-reload enabled. If it doesn't work:
+
+    ```bash
+    # Stop the Tauri dev server
+    Ctrl+C
+
+    # Clear Next.js cache
+    rm -rf .next
+
+    # Restart
+    npm run tauri dev
+    ```
+
+  </Accordion>
+
+  <Accordion title="Backend changes not reflecting">
+
+    For Rust backend changes, full rebuild may be needed:
+
+    ```bash
+    cd src-tauri
+    cargo build
+    cd ..
+    npm run tauri dev
+    ```
+
+  </Accordion>
+</AccordionGroup>
+
+### Application window not opening
+
+If the Tauri window doesn't appear:
+
+<Steps>
+  <Step title="Check for running processes">
+
+    Dashi may already be running:
+
+    ```bash
+    # macOS/Linux
+    ps aux | grep dashi
+
+    # Windows
+    tasklist | findstr dashi
+    ```
+
+    Kill existing processes:
+
+    ```bash
+    # macOS/Linux
+    pkill -f dashi
+
+    # Windows
+    taskkill /F /IM dashi.exe
+    ```
+
+  </Step>
+
+  <Step title="Check for build errors">
+
+    Run the dev command and review output:
+
+    ```bash
+    npm run tauri dev
+    ```
+
+    Look for error messages in the terminal output.
+
+  </Step>
+
+  <Step title="Verify port availability">
+
+    Ensure port 3000 is available:
+
+    ```bash
+    # Check what's using port 3000
+    lsof -i :3000  # macOS/Linux
+    netstat -ano | findstr :3000  # Windows
+
+    # Kill the process if needed
+    kill -9 <PID>  # macOS/Linux
+    taskkill /F /PID <PID>  # Windows
+    ```
+
+  </Step>
+</Steps>
+
+## Performance issues
+
+### Slow transcription response
+
+If voice transcription takes longer than expected:
+
+<AccordionGroup>
+  <Accordion title="First API request latency">
+
+    The first API request to Groq has higher latency. This is normal.
+
+    Subsequent requests will be faster.
+
+  </Accordion>
+
+  <Accordion title="Network latency">
+
+    Check your internet connection speed:
+
+    ```bash
+    ping api.groq.com
+    ```
+
+    High latency indicates network issues.
+
+  </Accordion>
+
+  <Accordion title="Audio file size too large">
+
+    Long recordings create large files that take longer to process.
+
+    Check console for WAV file size:
+    ```
+    Audio processed, WAV size: 123456 bytes
+    ```
+
+    Large files (>100KB) may have slower transcription.
+
+  </Accordion>
+</AccordionGroup>
+
+### Application using high memory
+
+If Dashi uses excessive memory:
+
+<Steps>
+  <Step title="Check memory usage">
+
+    Monitor memory usage:
+    - **macOS**: Activity Monitor
+    - **Linux**: `top` or `htop`
+    - **Windows**: Task Manager
+
+    Normal usage should be under 200MB.
+
+  </Step>
+
+  <Step title="Restart periodically">
+
+    Long-running sessions may accumulate memory. Restart the application.
+
+  </Step>
+
+  <Step title="Check for memory leaks">
+
+    If memory grows continuously during use, there may be a memory leak.
+    Review console logs for errors and check code for proper cleanup.
+
+  </Step>
+</Steps>
+
+## Getting help
+
+If you've tried these solutions and still have issues:
+
+<Steps>
+  <Step title="Check console logs">
+
+    Review all console output for specific error messages:
+    - Tauri terminal output
+    - Browser console (F12)
+    - Rust backend logs (in Tauri terminal)
+
+  </Step>
+
+  <Step title="Review source code">
+
+    Check the relevant source files:
+    - `src-tauri/src/audio.rs` - Audio processing and Groq API
+    - `src/lib/letta.ts` - Letta agent integration
+    - `src-tauri/src/lib.rs` - Tauri command handlers
+
+  </Step>
+
+  <Step title="Verify dependencies">
+
+    Check that all dependencies are at correct versions:
+
+    ```bash
+    # Check Node.js dependencies
+    npm list
+
+    # Check Rust dependencies
+    cd src-tauri
+    cargo tree
+    ```
+
+  </Step>
+
+  <Step title="Provide diagnostic information">
+
+    When asking for help, include:
+    - OS and version
+    - Node.js and Rust versions
+    - Full error message and stack trace
+    - Steps to reproduce the issue
+    - Console logs
+    - Relevant code snippets
+
+  </Step>
+</Steps>
+
+## Common error messages reference
+
+<Table>
+  <thead>
+    <tr>
+      <th>Error message</th>
+      <th>Cause</th>
+      <th>Solution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`GROQ_API_KEY env variable not set`</td>
+      <td>Missing environment variable</td>
+      <td>Add `.env` file with API key</td>
+    </tr>
+    <tr>
+      <td>`Failed to get response from Groq`</td>
+      <td>API connection or auth failure</td>
+      <td>Check API key and network</td>
+    </tr>
+    <tr>
+      <td>`Microphone permission denied`</td>
+      <td>OS privacy settings</td>
+      <td>Grant microphone permission</td>
+    </tr>
+    <tr>
+      <td>`Agent not found`</td>
+      <td>Invalid Letta agent ID</td>
+      <td>Verify agent ID in letta.ts</td>
+    </tr>
+    <tr>
+      <td>`Could not connect to Letta server`</td>
+      <td>Letta service not running</td>
+      <td>Start Letta server on port 8283</td>
+    </tr>
+    <tr>
+      <td>`WebView2 runtime not found`</td>
+      <td>Missing Windows component</td>
+      <td>Install WebView2 runtime</td>
+    </tr>
+  </tbody>
+</Table>
+
+## Next steps
+
+After resolving issues:
+
+- [/development/building](/development/building) - Learn more about the build process
+- [/development/testing](/development/testing) - Verify fixes work with testing
+- [/technical/architecture](/technical/architecture) - Deep dive into system architecture

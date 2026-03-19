@@ -1,0 +1,207 @@
+---
+description: Learn about Dashi's technical architecture using Tauri and Next.js.
+---
+
+# Architecture
+
+Dashi combines a desktop application backend with a modern frontend, enabling powerful AI interactions through Tauri and Next.js.
+
+## Architecture Overview
+
+Dashi uses a hybrid architecture split between:  
+- **Tauri backend** (Rust) for system-level operations and AI API integrations  
+- **Next.js frontend** (React/TypeScript) for the user interface and state management  
+
+<Expandable title="View data flow diagram">
+
+```
+User Input (Voice/Text)
+      ↓
+[Next.js Frontend]
+      ├──→ Audio Recording (MediaRecorder)
+      └──→ Chat Input (text)
+      ↓
+[Tauri IPC Bridge]
+      ├──→ transcribe() command
+      └──→ process_audio() command
+      ↓
+[Tauri Backend (Rust)]
+      ├──→ Audio Processing (WAV conversion)
+      └──→ Groq API Client
+      ↓     ↓
+[AI Services]
+  Groq Whisper   Letta Agents
+      ↓     ↓
+[Response Streaming]
+      ↓
+[Next.js Frontend]
+      └──→ Real-time UI Updates
+```
+
+</Expandable>
+
+## Frontend-Backend Communication
+
+Tauri's invoke handler enables seamless communication between React and Rust. The bridge exposes commands that the frontend can call:
+
+```rust
+// src-tauri/src/lib.rs
+#[tauri::command]
+pub async fn transcribe(audio: Vec<f32>) -> Result<String, String> {
+  let wav_data = process_audio(audio)?;
+  let client = get_client().await;
+  let request = SpeechToTextRequest::new(wav_data)
+      .temperature(0.7)
+      .language("en")
+      .model("whisper-large-v3");
+  let result = client.speech_to_text(request).await?;
+  Ok(result.text)
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+  tauri::Builder::default()
+    .invoke_handler(tauri::generate_handler![transcribe])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+}
+```
+
+The React frontend invokes these commands using Tauri's `invoke` function:
+
+```typescript
+// src/lib/tts.ts
+const transcription = await invoke<string>("transcribe", {
+  audio: audioSamples,
+});
+```
+
+## Data Flow
+
+### Voice Input Flow
+
+<Steps>
+
+1. **Audio Capture**
+
+   The `useVoiceRecorder` hook captures audio from the microphone:
+
+   ```typescript
+   // src/lib/tts.ts
+   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+   const mediaRecorder = new MediaRecorder(stream, {
+     mimeType: "audio/webm",
+   });
+   mediaRecorder.addEventListener("dataavailable", (event) => {
+     audioChunksRef.current.push(event.data);
+   });
+   ```
+
+2. **Audio Processing**
+
+   Process webm audio to PCM format and send to Tauri:
+
+   ```typescript
+   // src/lib/tts.ts
+   const audioContext = new AudioContext({ sampleRate: 16000 });
+   const arrayBuffer = await audioBlob.arrayBuffer();
+   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+   const pcmData = audioBuffer.getChannelData(0);
+   const audioSamples = Array.from(pcmData);
+   ```
+
+3. **Transcription**
+
+   Tauri converts PCM to WAV and sends to Groq:
+
+   ```rust
+   // src-tauri/src/audio.rs
+   pub fn process_audio(audio: Vec<f32>) -> Result<Vec<u8>, String> {
+       let spec = hound::WavSpec {
+           channels: 1,
+           sample_rate: 16000,
+           bits_per_sample: 16,
+           sample_format: SampleFormat::Int,
+       };
+       let mut buffer = Cursor::new(Vec::new());
+       let mut writer = hound::WavWriter::new(&mut buffer, spec)?;
+       for &sample in &audio {
+           let sample_i16 = (sample * 32767.0) as i16;
+           writer.write_sample(sample_i16)?;
+       }
+       writer.finalize()?;
+       Ok(buffer.into_inner())
+   }
+   ```
+
+4. **Response Generation**
+
+   Letta agents stream responses back to the frontend.
+
+</Steps>
+
+### Chat Input Flow
+
+Text input bypasses audio processing:
+
+```typescript
+// src/components/ui/dashimain.tsx
+const handleChatSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (chatInput.trim()) {
+    setChatMessages((prev) => [...prev, { text: chatInput.trim(), isUser: true }]);
+    const dashiResponseStream = await generate_response(chatInput);
+    for await (const chunk of dashiResponseStream) {
+      if (chunk.content && chunk.content !== "undefined") {
+        setChatMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            text: (updated[updated.length - 1].text || "") + chunk.content,
+          };
+          return updated;
+        });
+      }
+    }
+  }
+};
+```
+
+## State Management
+
+React state handles UI interactions:
+
+- `isActivated`: Tracks if Dashi is active
+- `isExpanded`: Controls voice mode expansion
+- `isActivatedState`: Controls chat mode activation
+- `chatMessages`: Stores conversation history
+- `voiceResponse`: Stores streaming AI response
+- `isGeneratingVoiceResponse`: Tracks response generation status
+
+<Warning>
+State updates in streaming responses must use functional updates to avoid race conditions.
+</Warning>
+
+## Component Structure
+
+```typescript
+// src/components/ui/dashimain.tsx
+export default function AnimatedVectorBox({
+  width = 100,
+  height = 100,
+  vectorPath = "",
+  vectorPaths = [],
+  boxColor = "black",
+  borderRadius = 16,
+  leftMargin = 20,
+}: AnimatedVectorBoxProps) {
+  const { startRecording, stopAndTranscribe, isRecording, error } = useVoiceRecorder();
+  const [chatMessages, setChatMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
+  const [voiceResponse, setVoiceResponse] = useState<string>("");
+  // ... state and event handlers
+}
+```
+
+<Note>
+The main component handles both voice and chat modes through keyboard shortcuts: `Cmd+Opt+V` for voice, `Cmd+Opt+T` for chat.
+</Note>

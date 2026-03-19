@@ -1,0 +1,181 @@
+---
+title: Configuration
+description: Environment variables and settings for Dashi
+
+---
+
+Dashi requires specific environment variables and configuration settings to function correctly. These settings enable API access and agent connectivity.
+
+## Environment Variables
+
+### GROQ_API_KEY
+
+Required API key for Groq's speech-to-text service. This key is used by the Tauri backend to transcribe audio recordings.
+
+```bash
+export GROQ_API_KEY=your_groq_api_key
+```
+
+<Expandable title="How it's used">
+
+The key is loaded during Tauri backend initialization:
+
+```rust
+// from src-tauri/src/audio.rs:14
+let api_key = env::var("GROQ_API_KEY")
+    .expect("GROQ_API_KEY env variable not set");
+```
+
+If the variable is not set, the application will panic with the message:
+
+```
+GROQ_API_KEY env variable not set
+```
+
+</Expandable>
+
+### Getting your API Key
+
+1. Visit [Groq Console](https://console.groq.com)
+2. Create an account or sign in
+3. Navigate to API Keys
+4. Generate a new API key
+5. Add to your environment before running Dashi
+
+---
+
+## Letta Agent Configuration
+
+Dashi connects to a Letta agent for AI-powered responses. The configuration is defined in the client module.
+
+```typescript
+// from src/lib/letta.ts:3-7
+const agent_id = "agent-4d2e89d5-098b-469e-abe7-a671b4fed302";
+
+export const letta_client = new LettaClient({
+  baseUrl: "http://localhost:8283",
+});
+```
+
+### Properties
+
+<ParamField name="baseUrl" type="string" required>
+
+The base URL of the Letta server instance. Default: `http://localhost:8283`
+
+</ParamField>
+
+<ParamField name="agent_id" type="string" required>
+
+The unique identifier for the Letta agent. Value: `agent-4d2e89d5-098b-469e-abe7-a671b4fed302`
+
+</ParamField>
+
+### Configuration Example
+
+To use a custom Letta instance, modify the configuration:
+
+```typescript
+export const letta_client = new LettaClient({
+  baseUrl: "https://your-letta-server.com",
+});
+
+const agent_id = "your-custom-agent-id";
+```
+
+---
+
+## Usage in Application
+
+### Tauri Backend
+
+The Rust backend reads the environment variable on startup:
+
+```rust
+// from src-tauri/src/audio.rs:11-18
+static GROQ_CLIENT: OnceCell<AsyncGroqClient> = OnceCell::const_new();
+async fn get_client() -> &'static AsyncGroqClient {
+  GROQ_CLIENT
+      .get_or_init(|| async {
+          let api_key = env::var("GROQ_API_KEY").expect("GROQ_API_KEY env variable not set");
+          AsyncGroqClient::new(api_key.to_string(), None).await
+      })
+      .await
+}
+```
+
+The client is cached using `OnceCell` to ensure a single client instance is used throughout the application lifecycle.
+
+### React Frontend
+
+The Letta client is imported and used for streaming responses:
+
+```typescript
+// from src/lib/letta.ts:9-20
+export const generate_response = async (input: string) => {
+  const stream = await letta_client.agents.messages.createStream(agent_id, {
+    messages: [
+      {
+        role: "user",
+        content: input,
+      },
+    ],
+    streamTokens: true,
+  });
+  return stream;
+};
+```
+
+---
+
+## Development Setup
+
+Create a `.env` file in the project root or set environment variables in your shell:
+
+```bash
+# Required for transcription
+echo "export GROQ_API_KEY=your_key_here" >> ~/.bashrc
+source ~/.bashrc
+```
+
+Ensure your Letta server is running at the configured `baseUrl` before starting Dashi:
+
+```bash
+# Start Letta server (example command)
+letta-server --port 8283
+```
+
+---
+
+## Troubleshooting
+
+### Issue: Application won't start
+
+**Error:** `GROQ_API_KEY env variable not set`
+
+**Solution:** Ensure `GROQ_API_KEY` is exported before running the Tauri application.
+
+### Issue: Transcription fails
+
+**Error:** `Failed to get response from Groq: ...`
+
+**Solution:** Verify your API key is valid and you have sufficient quota on your Groq account.
+
+### Issue: AI agent not responding
+
+**Error:** Connection refused or timeout
+
+**Solution:** Check that the Letta server is running at the configured `baseUrl`.
+
+---
+
+## Configuration Summary
+
+| Setting | Location | Type | Required |
+|---------|----------|------|-----------|
+| `GROQ_API_KEY` | Environment variable | String | Yes |
+| `baseUrl` | `letta.ts` | String | Yes (internal) |
+| `agent_id` | `letta.ts` | String | Yes (internal) |
+| `model` | `audio.rs` | String | No (fixed: `whisper-large-v3`) |
+| `temperature` | `audio.rs` | Float | No (fixed: `0.7`) |
+| `language` | `audio.rs` | String | No (fixed: `en`) |

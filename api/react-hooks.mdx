@@ -1,0 +1,189 @@
+---
+title: React Hooks
+description: Custom React hooks for voice recording and transcription
+
+---
+
+## useVoiceRecorder
+
+Custom hook that manages audio recording, microphone access, and transcription through the Tauri backend.
+
+### Signature
+
+```typescript
+export function useVoiceRecorder(): UseVoiceRecorderResult
+```
+
+### Interface
+
+```typescript
+interface UseVoiceRecorderResult {
+  isRecording: boolean;
+  error: string | null;
+  startRecording: () => Promise<void>;
+  stopAndTranscribe: () => Promise<string | null>;
+}
+```
+
+### Properties
+
+<ParamField name="isRecording" type="boolean" required>
+
+Current recording state. `true` while recording is active.
+
+</ParamField>
+
+<ParamField name="error" type="string | null" required>
+
+Error message if recording or transcription fails. `null` when there is no error.
+
+</ParamField>
+
+### Methods
+
+<ParamField name="startRecording" type="() => Promise<void>" required>
+
+Requests microphone access and starts recording audio in WebM format.
+
+**Error conditions:**
+
+- Sets `error` if recording is already in progress
+- Sets `error` if microphone access is denied
+
+</ParamField>
+
+<ParamField name="stopAndTranscribe" type="() => Promise<string | null>" required>
+
+Stops the recording, converts audio to PCM format, sends to backend for transcription, and returns the result.
+
+**Returns:** Transcribed text as a `string`, or `null` if no recording was active.
+
+**Error conditions:**
+
+- Sets `error` if no active recording exists
+- Sets `error` if transcription fails
+
+</ParamField>
+
+### Behavior
+
+#### Recording Phase
+
+```typescript
+// from src/lib/tts.ts:24-27
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+const mediaRecorder = new MediaRecorder(stream, {
+  mimeType: "audio/webm",
+});
+```
+
+The hook uses the Web MediaRecorder API with the following configuration:
+
+- Format: `audio/webm`
+- Audio source: System default microphone
+
+#### Transcription Phase
+
+When `stopAndTranscribe` is called:
+
+1. Captures audio chunks as a Blob
+2. Resamples to 16000 Hz using Web Audio API
+3. Extracts mono channel PCM data
+4. Invokes the `transcribe` Tauri command
+
+```typescript
+// from src/lib/tts.ts:66-73
+const audioContext = new AudioContext({ sampleRate: 16000 });
+const arrayBuffer = await audioBlob.arrayBuffer();
+const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+const pcmData = audioBuffer.getChannelData(0);
+const audioSamples = Array.from(pcmData);
+const transcription = await invoke<string>("transcribe", {
+  audio: audioSamples,
+});
+```
+
+#### Error States
+
+The hook manages error states in two scenarios:
+
+```typescript
+// from src/lib/tts.ts:36-38
+setError(
+  "Microphone access denied. Please enable it in your browser settings."
+);
+```
+
+```typescript
+// from src/lib/tts.ts:77
+setError("Failed to transcribe audio: " + err);
+```
+
+### Example Usage
+
+```typescript
+import { useVoiceRecorder } from "@/lib/tts";
+
+const { isRecording, error, startRecording, stopAndTranscribe } = useVoiceRecorder();
+
+// Start recording
+await startRecording();
+
+console.log("Recording...");
+
+// Stop and get transcription
+const transcription = await stopAndTranscribe();
+console.log("Transcription:", transcription);
+
+if (error) {
+  console.error("Error:", error);
+}
+```
+
+### Example Component
+
+```tsx
+const VoiceButton = () => {
+  const { isRecording, error, startRecording, stopAndTranscribe } = useVoiceRecorder();
+  const [transcription, setTranscription] = useState<string | null>(null);
+
+  const handleClick = async () => {
+    if (isRecording) {
+      const result = await stopAndTranscribe();
+      setTranscription(result);
+    } else {
+      await startRecording();
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={handleClick}>
+        {isRecording ? 'Stop & Transcribe' : 'Start Recording'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {transcription && <p className="transcription">{transcription}</p>}
+    </div>
+  );
+};
+```
+
+---
+
+## Integration
+
+The hook integrates with the Tauri backend using the `invoke` function:
+
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+```
+
+The hook invokes the `transcribe` command defined in the Rust backend:
+
+```typescript
+const transcription = await invoke<string>("transcribe", {
+  audio: audioSamples,
+});
+```
+
+This provides a seamless bridge between the frontend recording logic and backend transcription service.

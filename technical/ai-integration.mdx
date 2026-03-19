@@ -1,0 +1,304 @@
+---
+description: Understand AI service integrations with Groq Whisper and Letta agents.
+---
+
+# AI Integration
+
+Dashi integrates two AI services: Groq for speech-to-text transcription and Letta for AI-generated responses.
+
+## Groq Whisper Integration
+
+Groq's Whisper model provides fast speech-to-text transcription.
+
+### Client Configuration
+
+```typescript
+// src-tauri/groq_rs/src/lib.rs
+pub struct AsyncGroqClient {
+    api_key: String,
+    client: Arc<AClient>,
+    endpoint: String,
+}
+
+impl AsyncGroqClient {
+    pub async fn new(api_key: String, endpoint: Option<String>) -> Self {
+        let ep = endpoint.unwrap_or_else(|| String::from("https://api.groq.com/openai/v1"));
+        Self {
+            api_key,
+            client: Arc::new(AClient::new()),
+            endpoint: ep,
+        }
+    }
+}
+```
+
+The client is instantiated as a singleton in the Tauri backend:
+
+```rust
+// src-tauri/src/audio.rs
+static GROQ_CLIENT: OnceCell<AsyncGroqClient> = OnceCell::const_new();
+
+async fn get_client() -> &'static AsyncGroqClient {
+  GROQ_CLIENT
+      .get_or_init(|| async {
+          let api_key = env::var("GROQ_API_KEY").expect("GROQ_API_KEY env variable not set");
+          AsyncGroqClient::new(api_key.to_string(), None).await
+      })
+      .await
+}
+```
+
+<Note>
+The `OnceCell` ensures only one client instance is created and reused across all transcription requests.
+</Note>
+
+### Speech-to-Text Request
+
+```rust
+// src-tauri/src/audio.rs
+let request = SpeechToTextRequest::new(wav_data)
+    .temperature(0.7)
+    .language("en")
+    .model("whisper-large-v3");
+```
+
+### Speech-to-Text Endpoint
+
+The client sends multipart form data to Groq's API:
+
+```rust
+// src-tauri/groq_rs/src/lib.rs
+pub async fn speech_to_text(
+    &self,
+    request: SpeechToTextRequest,
+) -> Result<SpeechToTextResponse, GroqError> {
+    let file = request.file;
+    let temperature = request.temperature;
+    let language = request.language;
+    let model = request.model;
+
+    let mut form = AForm::new().part("file", APart::bytes(file).file_name("audio.wav"));
+    if let Some(temp) = temperature {
+        form = form.text("temperature", temp.to_string());
+    }
+    if let Some(lang) = language {
+        form = form.text("language", lang);
+    }
+    if let Some(mdl) = model {
+        form = form.text("model", mdl);
+    }
+
+    let link_addition = if request.english_text {
+        "/audio/translations"
+    } else {
+        "/audio/transcriptions"
+    };
+
+    let link = format!("{}{}", self.endpoint, link_addition);
+    let response = self
+        .client
+        .post(&link)
+        .header("Authorization", &format!("Bearer {}", self.api_key))
+        .multipart(form)
+        .send()
+        .await?;
+
+    let speech_to_text_response: SpeechToTextResponse = response.json().await?;
+    Ok(speech_to_text_response)
+}
+```
+
+### Response Structure
+
+```rust
+// src-tauri/groq_rs/src/message.rs
+pub struct SpeechToTextResponse {
+    pub text: String,
+}
+```
+
+<Expandable title="Available Whisper models on Groq">
+
+- `whisper-large-v3` - Best accuracy, slower
+- `whisper-large-v3-turbo` - Faster, slightly less accurate
+- `whisper-medium` - Balanced speed/accuracy
+- `whisper-small` - Fastest, less accurate
+
+</Expandable>
+
+## Letta Agent Integration
+
+Letta agents provide streaming AI responses for both voice and text inputs.
+
+### Client Setup
+
+```typescript
+// src/lib/letta.ts
+import { LettaClient } from "@letta-ai/letta-client";
+
+const agent_id = "agent-4d2e89d5-098b-469e-abe7-a671b4fed302";
+
+export const letta_client = new LettaClient({
+  baseUrl: "http://localhost:8283",
+});
+```
+
+<Warning>
+The Letta server must be running on `http://localhost:8283` before making requests.
+</Warning>
+
+### generate_response Function
+
+Generates streaming responses from the Letta agent:
+
+```typescript
+// src/lib/letta.ts
+export const generate_response = async (input: string) => {
+  const stream = await letta_client.agents.messages.createStream(agent_id, {
+    messages: [
+      {
+        role: "user",
+        content: input,
+      },
+    ],
+    streamTokens: true,
+  });
+  return stream;
+};
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agent_id` | `string` | Unique agent identifier |
+| `messages` | `Array<{role, content}>` | User message array |
+| `streamTokens` | `boolean` | Enable streaming tokens |
+
+## Streaming Response Handling
+
+The UI updates progressively as tokens arrive:
+
+```typescript
+// src/components/ui/dashimain.tsx
+const handleChatSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (chatInput.trim()) {
+    setChatMessages((prev) => [...prev, { text: chatInput.trim(), isUser: true }]);
+    setChatInput("");
+
+    setTimeout(async () => {
+      const dashiResponseStream = await generate_response(chatInput);
+      setChatMessages((prev) => [...prev, { text: "", isUser: false }]);
+      for await (const chunk of dashiResponseStream) {
+        if (chunk.content && chunk.content !== "undefined") {
+          setChatMessages((prev) => {
+            const updated = [...prev];
+            if (updated.length > 0) {
+              updated[updated.length - 1] = {
+                ...updated[updated.length - 1],
+                text: (updated[updated.length - 1].text || "") + chunk.content,
+              };
+            }
+            return updated;
+          });
+        }
+      }
+    }, 500);
+  }
+};
+```
+
+### Voice Mode Streaming
+
+Voice input follows the same streaming pattern:
+
+```typescript
+// src/components/ui/dashimain.tsx
+const handleKeyUp = async (event: KeyboardEvent) => {
+  if (isRecording) {
+    try {
+      const result = await stopAndTranscribe();
+      setTranscription(result);
+      if (result) {
+        setChatMessages((prev) => [
+          ...prev,
+          { text: result, isUser: true },
+        ]);
+        setIsGeneratingVoiceResponse(true);
+        setVoiceResponse("");
+        const dashiResponseStream = await generate_response(result);
+        setChatMessages((prev) => [...prev, { text: "", isUser: false }]);
+        for await (const chunk of dashiResponseStream) {
+          if (chunk.content && chunk.content !== "undefined") {
+            setVoiceResponse((prev) => prev + chunk.content);
+            setChatMessages((prev) => {
+              const updated = [...prev];
+              if (updated.length > 0) {
+                updated[updated.length - 1] = {
+                  ...updated[updated.length - 1],
+                  text: (updated[updated.length - 1].text || "") + chunk.content,
+                };
+              }
+              return updated;
+            });
+          }
+        }
+        setIsGeneratingVoiceResponse(false);
+      }
+    } catch (err) {
+      alert("Failed to transcribe: " + err);
+      setIsGeneratingVoiceResponse(false);
+    }
+  }
+};
+```
+
+## End-to-End Data Flow
+
+<Steps>
+
+1. **User speaks** → MediaRecorder captures WebM audio chunks
+2. **Audio processed** → WebM converted to PCM at 16kHz
+3. **Transcription** → PCM sent to Groq Whisper via Tauri
+4. **Transcript received** → Text returned to frontend
+5. **Letta query** → Transcript sent to Letta agent
+6. **Streaming response** → Tokens streamed back to UI
+7. **UI updates** → Chat messages updated progressively
+
+</Steps>
+
+## Error Handling
+
+```rust
+// src-tauri/src/audio.rs
+match result {
+    Ok(response) => {
+        println!("Groq API Success. Transcription: {}", response.text);
+        Ok(response.text)
+    }
+    Err(e) => {
+        eprintln!("Groq API Error: {:?}", e);
+        Err(format!("Failed to get response from Groq: {}", e))
+    }
+}
+```
+
+```typescript
+// src/lib/tts.ts
+try {
+  const transcription = await invoke<string>("transcribe", {
+    audio: audioSamples,
+  });
+  setIsRecording(false);
+  resolve(transcription);
+} catch (err: any) {
+  setError("Failed to transcribe audio: " + err);
+  setIsRecording(false);
+  reject(err);
+}
+```
+
+<Note>
+Both Groq and Letta responses are handled asynchronously to keep the UI responsive.
+</Note>

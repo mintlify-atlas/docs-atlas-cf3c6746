@@ -1,0 +1,304 @@
+---
+title: 'Configuration'
+description: 'Configure environment variables and settings for Dashi to work with AI services.'
+keywords: ['configuration', 'environment variables', 'api keys', 'settings', 'groq', 'letta']
+---
+
+Configure Dashi by setting up environment variables and adjusting application settings. This guide covers all configuration options needed to run Dashi with AI services.
+
+## Environment variables
+
+Dashi uses environment variables to store sensitive API keys and configuration. These are loaded at runtime using the `dotenv` crate in the Rust backend.
+
+### Required environment variables
+
+Create or edit the `.env` file in your project root with these variables:
+
+```env
+# Groq API key for speech-to-text transcription
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+### Getting your API keys
+
+<Steps>
+  <Step title="Get a Groq API key">
+
+    Groq provides fast AI inference, including the Whisper model for speech-to-text transcription.
+
+    1. Visit [console.groq.com](https://console.groq.com)
+    2. Sign up or log in to your account
+    3. Navigate to **API Keys** in the sidebar
+    4. Click **Create API Key**
+    5. Copy your API key and add it to your `.env` file
+
+    <Tip>
+      Keep your API keys secure. Never commit `.env` files to version control. Add `.env` to your `.gitignore` file.
+    </Tip>
+
+  </Step>
+
+  <Step title="Configure Letta agent">
+
+    Dashi uses Letta AI agents for generating responses. The agent configuration is in `src/lib/letta.ts`:
+
+    ```typescript letta.ts
+    const agent_id = "agent-4d2e89d5-098b-469e-abe7-a671b4fed302";
+
+    export const letta_client = new LettaClient({
+      baseUrl: "http://localhost:8283",
+    });
+    ```
+
+    Ensure your Letta agent service is running on `http://localhost:8283` before starting Dashi.
+
+  </Step>
+
+  <Step title="Verify configuration">
+
+    Start the development server and check the console output:
+
+    ```bash
+    npm run dev
+    ```
+
+    If configured correctly, you should see:
+    - Next.js development server starting on `http://localhost:3000`
+    - Tauri application window opening
+    - No errors related to missing environment variables
+
+    <Warning>
+      If you see "GROQ_API_KEY env variable not set", ensure your `.env` file is in the project root and the variable is set correctly.
+    </Warning>
+
+  </Step>
+</Steps>
+
+## Application configuration
+
+### Tauri configuration
+
+The Tauri desktop application is configured in `src-tauri/tauri.conf.json`:
+
+```json src-tauri/tauri.conf.json
+{
+  "productName": "dashi",
+  "version": "0.1.0",
+  "identifier": "com.tauri.dev",
+  "build": {
+    "frontendDist": "../out",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "bun dev",
+    "beforeBuildCommand": "bun build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "dashi",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' blob: data: media:; script-src 'self' 'unsafe-eval';"
+    }
+  }
+}
+```
+
+**Key configuration options:**
+
+- **width/height**: Default window dimensions (800x600)
+- **resizable**: Allows users to resize the window
+- **csp**: Content Security Policy for security
+- **devUrl**: Development server URL
+- **beforeDevCommand**: Command to run before starting Tauri dev mode
+
+### Next.js configuration
+
+The Next.js frontend is configured in `next.config.ts` and `tsconfig.json`:
+
+```typescript next.config.ts
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+```
+
+The TypeScript configuration includes path aliases for cleaner imports:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
+```
+
+This allows imports like `import { Component } from "@/components/ui"` instead of relative paths.
+
+### Rust backend configuration
+
+The Rust backend dependencies are defined in `src-tauri/Cargo.toml`:
+
+```toml src-tauri/Cargo.toml
+[dependencies]
+tauri = { version = "2.5.0", features = [] }
+groq_api_rust = { path = "./groq_rs" }
+hound = "3.5.1"
+tokio = "1.45.1"
+once_cell = "1.21.3"
+dotenv = "0.15.0"
+```
+
+**Audio processing settings** (src-tauri/src/audio.rs):
+
+```rust audio.rs
+let spec = hound::WavSpec {
+    channels: 1,
+    sample_rate: 16000,
+    bits_per_sample: 16,
+    sample_format: SampleFormat::Int,
+};
+```
+
+- **channels**: 1 (mono audio)
+- **sample_rate**: 16000 Hz (required by Whisper model)
+- **bits_per_sample**: 16-bit audio depth
+
+## Security best practices
+
+<Warning>
+    **Never commit API keys**: Always add `.env` to your `.gitignore` file before committing to version control.
+</Warning>
+
+<Warning>
+    **Use different keys for dev and production**: Generate separate API keys for development and production environments.
+</Warning>
+
+<Warning>
+    **Rotate keys regularly**: Update your API keys periodically and remove old keys that are no longer in use.
+</Warning>
+
+<Check>
+    Add this to your `.gitignore` file:
+    ```gitignore
+    # Environment variables
+    .env
+    .env.local
+    .env.*.local
+    ```
+</Check>
+
+## Troubleshooting configuration issues
+
+### Environment variables not loading
+
+If environment variables aren't being recognized:
+
+1. Verify `.env` file is in the project root (same directory as `package.json`)
+2. Check that variable names match exactly (case-sensitive)
+3. Restart the development server after making changes
+4. Ensure `dotenv` crate is correctly configured in `src-tauri/src/main.rs`:
+
+    ```rust main.rs
+    use dotenv::dotenv;
+
+    fn main() {
+      dotenv().ok();
+      app_lib::run();
+    }
+    ```
+
+### Tauri build errors
+
+If you encounter build errors:
+
+1. Verify Rust is installed and updated: `rustup update`
+2. Check platform-specific dependencies are installed
+3. Clean build artifacts: `cargo clean`
+4. Rebuild: `cargo build`
+
+### Audio recording failures
+
+If voice recording doesn't work:
+
+1. Check microphone permissions in system settings
+2. Verify browser permissions for microphone access
+3. Test microphone with other applications
+4. Check console for specific error messages
+
+## Advanced configuration
+
+### Customizing the Letta agent
+
+To use a different Letta agent, modify `src/lib/letta.ts`:
+
+```typescript letta.ts
+const agent_id = "your-custom-agent-id";
+
+export const letta_client = new LettaClient({
+  baseUrl: "http://custom-server:port",
+});
+```
+
+### Adjusting transcription accuracy
+
+The transcription model is configured in `src-tauri/src/audio.rs`:
+
+```rust audio.rs
+let request = SpeechToTextRequest::new(wav_data)
+    .temperature(0.7)
+    .language("en")
+    .model("whisper-large-v3");
+```
+
+- **temperature**: Controls randomness (0.0-1.0, lower = more deterministic)
+- **language**: Language code (e.g., "en", "es", "fr")
+- **model**: Whisper model variant
+
+### Modifying keyboard shortcuts
+
+Keyboard shortcuts are defined in `src/components/ui/dashimain.tsx`:
+
+```typescript dashimain.tsx
+// Voice mode: Cmd+Opt+V
+const isVKey = event.key === "v" || event.key === "V" || event.keyCode === 86;
+if ((event.metaKey || event.ctrlKey) && event.altKey && isVKey) {
+  // Toggle voice mode
+}
+
+// Chat mode: Cmd+Opt+T
+const isTKey = event.key === "t" || event.key === "T" || event.keyCode === 84;
+if ((event.metaKey || event.ctrlKey) && event.altKey && isTKey) {
+  // Toggle chat mode
+}
+```
+
+## Production deployment
+
+For production deployment:
+
+1. Build the frontend: `npm run build`
+2. Build the Tauri application: `npm run tauri build`
+3. Distribute the built application from `src-tauri/target/release/bundle/`
+4. Ensure production environment variables are set in the deployment environment
+
+<Note>
+    Production builds require platform-specific signing and notarization. Refer to the [Tauri distribution guide](https://tauri.app/v1/guides/distribution/) for details.
+</Note>
+
+## Next steps
+
+With Dashi configured, explore its features:
+
+- [/features/voice-input](/features/voice-input) - Learn about voice input implementation
+- [/features/chat-interface](/features/chat-interface) - Understand the chat interface
+- [/technical/architecture](/technical/architecture) - Deep dive into the technical architecture

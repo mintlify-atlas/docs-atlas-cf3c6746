@@ -1,80 +1,205 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quick start'
+description: 'Get started with Dashi by setting up your first voice or chat conversation in minutes.'
+keywords: ['quickstart', 'getting started', 'first steps', 'voice mode', 'chat mode']
 ---
 
-## Get started in three steps
+Get up and running with Dashi in just a few minutes. This guide walks you through launching the application and having your first conversation using voice or text input.
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Steps>
+  <Step title="Set up environment variables">
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    Dashi requires API keys for AI services. Create a `.env` file in your project root:
 
-### Step 2: Deploy your changes
+    ```bash
+    # In the project root directory
+    touch .env
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    Add your required API keys to the `.env` file:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```env
+    # Groq API key for speech-to-text transcription
+    GROQ_API_KEY=your_groq_api_key_here
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Tip>
+      Get your Groq API key from [console.groq.com](https://console.groq.com). The `whisper-large-v3` model is used for transcription.
+    </Tip>
 
-### Step 3: Go live
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Start the development server">
+
+    Launch Dashi in development mode to start both the frontend and backend:
+
+    ```bash
+    npm run dev
+    # or
+    bun dev
+    ```
+
+    This command starts:
+    - The Next.js development server on `http://localhost:3000`
+    - The Tauri application window with your Dashi interface
+    - The Rust backend with audio processing capabilities
+
+    The Dashi window will open automatically, showing the animated mascot character on a dark background.
+
+  </Step>
+
+  <Step title="Use voice mode">
+
+    Experience voice input with Dashi:
+
+    1. Ensure your microphone is connected and permissions are granted
+    2. Press and hold <strong>Cmd+Opt+V</strong> (Mac) or <strong>Ctrl+Alt+V</strong> (Windows/Linux)
+    3. Speak your message clearly
+    4. Release the keys to stop recording
+    5. Watch Dashi transcribe your speech and generate a response
+
+    <CodeGroup>
+    ```typescript dashimain.tsx
+    // Voice recording is handled by the useVoiceRecorder hook
+    const { startRecording, stopAndTranscribe, isRecording } = useVoiceRecorder();
+
+    // Press Cmd+Opt+V to trigger:
+    await startRecording();  // Starts microphone capture
+
+    // Release Cmd+Opt+V to trigger:
+    const transcription = await stopAndTranscribe();  // Stops and transcribes
+    ```
+    ```rust audio.rs
+    // Rust backend processes audio and calls Groq API
+    #[tauri::command]
+    pub async fn transcribe(audio: Vec<f32>) -> Result<String, String> {
+        let wav_data = process_audio(audio)?;
+        let request = SpeechToTextRequest::new(wav_data)
+            .model("whisper-large-v3")
+            .language("en");
+        let result = client.speech_to_text(request).await?;
+        Ok(result.text)
+    }
+    ```
+    </CodeGroup>
+
+    The mascot animates and music notes appear around Dashi while recording. Your transcribed text is converted to a WAV file and sent to Groq's API for transcription (src/components/ui/dashimain.tsx:198-274).
+
+  </Step>
+
+  <Step title="Use chat mode">
+
+    For text-based conversations, switch to chat mode:
+
+    1. Press <strong>Cmd+Opt+T</strong> (Mac) or <strong>Ctrl+Alt+T</strong> (Windows/Linux)
+    2. The chat interface appears with a text input field
+    3. Type your message in the input field
+    4. Click **Send** or press Enter
+    5. Watch Dashi's response stream in real-time
+
+    <CodeGroup>
+    ```typescript dashimain.tsx
+    // Chat interface handles user messages and AI responses
+    const handleChatSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (chatInput.trim()) {
+        setChatMessages(prev => [...prev, { text: chatInput, isUser: true }]);
+        
+        const dashiResponseStream = await generate_response(chatInput);
+        for await (const chunk of dashiResponseStream) {
+          if (chunk.content && chunk.content !== "undefined") {
+            setChatMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = {
+                ...updated[updated.length - 1],
+                text: (updated[updated.length - 1].text || "") + chunk.content
+              };
+              return updated;
+            });
+          }
+        }
+      }
+    };
+    ```
+    ```typescript letta.ts
+    // Letta client generates streaming AI responses
+    export const generate_response = async (input: string) => {
+      const stream = await letta_client.agents.messages.createStream(agent_id, {
+        messages: [{ role: "user", content: input }],
+        streamTokens: true,
+      });
+      return stream;
+    };
+    ```
+    </CodeGroup>
+
+    Messages appear in a chat bubble interface. User messages show in teal (#8CEBE5) on the right, while Dashi's responses appear in purple (#D500D8) on the left (src/components/ui/dashimain.tsx:450-586).
+
+  </Step>
+
+  <Step title="Reset to default mode">
+
+    To exit voice or chat mode and return Dashi to its default state:
+
+    Press the <strong>Escape</strong> key at any time.
+
+    This resets the interface, closes the chat window, stops any active recordings, and returns Dashi to its initial hovering position with low opacity (src/components/ui/dashimain.tsx:130-145).
+
+  </Step>
+</Steps>
+
+## Keyboard shortcuts reference
+
+<CardGroup>
+  <Card title="Voice recording" icon="mic">
+    <strong>Cmd+Opt+V</strong> (Mac) or <strong>Ctrl+Alt+V</strong> (Windows/Linux)<br/>
+    Hold to record, release to transcribe and respond
+  </Card>
+  <Card title="Chat mode" icon="message-square">
+    <strong>Cmd+Opt+T</strong> (Mac) or <strong>Ctrl+Alt+T</strong> (Windows/Linux)<br/>
+    Toggle chat interface on/off
+  </Card>
+  <Card title="Reset" icon="x-circle">
+    <strong>Escape</strong><br/>
+    Return to default state and close interfaces
+  </Card>
+</CardGroup>
+
+## What's happening behind the scenes
+
+When you use voice mode:
+
+1. Browser captures audio via MediaRecorder API
+2. Audio is converted to WAV format (16kHz mono) in Rust
+3. WAV data is sent to Groq's Whisper model for transcription
+4. Transcribed text is passed to Letta AI agent
+5. Response streams back in real-time to the UI
+
+When you use chat mode:
+
+1. Your message is sent directly to the Letta AI agent
+2. Agent processes the input and generates a response
+3. Response streams token-by-token to the React frontend
+4. Chat interface updates in real-time as tokens arrive
+
+## Common issues
+
+<Warning>
+    **Microphone access denied**: Ensure your browser or system has granted microphone permissions to Dashi. Check your system privacy settings.
+</Warning>
+
+<Warning>
+    **GROQ_API_KEY not set**: Verify your `.env` file exists in the project root and contains a valid Groq API key. The Rust backend reads this environment variable at runtime.
+</Warning>
+
+<Warning>
+    **Letta connection failed**: Ensure your Letta agent service is running at `http://localhost:8283`. The agent ID is configured in `src/lib/letta.ts`.
+</Warning>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you're up and running:
 
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+- [/configuration](/configuration) - Learn more about environment variables and configuration options
+- [/features/voice-input](/features/voice-input) - Deep dive into voice input implementation
+- [/features/chat-interface](/features/chat-interface) - Explore the chat interface in detail

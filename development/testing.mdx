@@ -1,0 +1,510 @@
+---
+title: 'Testing'
+description: 'Test Dashi functionality including voice input, chat interface, and API integrations.'
+keywords: ['testing', 'verification', 'qa', 'voice testing', 'api testing', 'integration testing']
+---
+
+Test Dashi to verify voice input, transcription, chat responses, and API integrations work correctly.
+
+## Test environment setup
+
+Before testing, ensure:
+
+<Tabs>
+  <Tab title="Development environment">
+
+    ```bash
+    # Start the development server
+    npm run tauri dev
+    ```
+
+    The development window opens with hot-reload enabled for rapid testing.
+
+  </Tab>
+
+  <Tab title="Production build">
+
+    ```bash
+    # Build the application
+    npm run tauri build
+
+    # Run the built executable
+    ./src-tauri/target/release/bundle/dashi
+    ```
+
+    Test with the fully optimized production build.
+
+  </Tab>
+</Tabs>
+
+## Configuration verification
+
+Verify required services are configured and accessible:
+
+<Steps>
+  <Step title="Check environment variables">
+
+    Verify your `.env` file contains the Groq API key:
+
+    ```bash
+    cat .env
+    # Should show: GROQ_API_KEY=your_api_key_here
+    ```
+
+    <Warning>
+      Without a valid GROQ_API_KEY, voice transcription will fail with the error: "GROQ_API_KEY env variable not set"
+    </Warning>
+
+  </Step>
+
+  <Step title="Verify Letta agent service">
+
+    Check if the Letta agent service is running on `http://localhost:8283`:
+
+    ```bash
+    curl http://localhost:8283
+    ```
+
+    The service should respond. If not, start the Letta server before testing chat functionality.
+
+  </Step>
+
+  <Step title="Confirm microphone access">
+
+    Grant microphone permissions to Dashi in your system settings:
+    - **macOS**: System Settings → Privacy & Security → Microphone
+    - **Linux**: Check browser/OS privacy settings
+    - **Windows**: Settings → Privacy → Microphone
+
+  </Step>
+</Steps>
+
+## Voice input testing
+
+Test the voice recording and transcription functionality.
+
+### Test procedure
+
+<Steps>
+  <Step title="Open voice mode">
+
+    Press `Cmd+Opt+V` (macOS) or `Ctrl+Alt+V` (Windows/Linux) to activate voice mode.
+
+    The animated mascot should indicate voice recording is active.
+
+  </Step>
+
+  <Step title="Record audio">
+
+    Speak clearly into your microphone:
+    - Use short phrases initially
+    - Speak at a normal pace
+    - Minimize background noise
+
+    The audio processing occurs in `src-tauri/src/audio.rs`:
+    - Raw audio samples captured at 16kHz
+    - Processed to WAV format with hound crate
+    - Sent to Groq API for transcription
+
+  </Step>
+
+  <Step title="Verify transcription">
+
+    Check that:
+    - Audio is processed successfully
+    - Transcription appears in the chat interface
+    - Transcription text is accurate
+    - No error messages appear in the console
+
+    <Note>
+      The transcription uses the Whisper large-v3 model from Groq. First-time requests may have higher latency.
+    </Note>
+
+  </Step>
+
+  <Step title="Check API response">
+
+    View the console output from `src-tauri/src/audio.rs`:
+
+    ```rust
+    println!("Processing audio...");
+    println!("Audio processed, WAV size: {} bytes", wav_data.len());
+    println!("Getting Groq client...");
+    println!("Sending request to Groq API...");
+    ```
+
+    Successful transcription shows:
+    - `Groq API Success. Transcription: [your text]`
+
+  </Step>
+</Steps>
+
+### Expected voice behavior
+
+<Check>
+  Audio recording activates when voice mode is toggled
+</Check>
+
+<Check>
+  Visual feedback indicates recording is in progress
+</Check>
+
+<Check>
+  Transcription text appears after recording completes
+</Check>
+
+<Check>
+  No more than 2-3 seconds latency for short phrases
+</Check>
+
+<Check>
+  Transcription accuracy is above 90% for clear speech
+</Check>
+
+## Chat interface testing
+
+Test the text-based chat interface and Letta AI responses.
+
+### Test procedure
+
+<Steps>
+  <Step title="Open chat mode">
+
+    Press `Cmd+Opt+T` (macOS) or `Ctrl+Alt+T` (Windows/Linux) to activate chat mode.
+
+    The chat input field should appear.
+
+  </Step>
+
+  <Step title="Send a test message">
+
+    Type a message and press Enter:
+
+    ```
+    Hello, introduce yourself.
+    ```
+
+    The message is sent to the Letta agent configured in `src/lib/letta.ts`:
+
+    ```typescript
+    const agent_id = "agent-4d2e89d5-098b-469e-abe7-a671b4fed302";
+    export const letta_client = new LettaClient({
+      baseUrl: "http://localhost:8283",
+    });
+    ```
+
+  </Step>
+
+  <Step title="Verify streaming response">
+
+    Observe that:
+    - Response appears incrementally (streaming)
+    - Text flows naturally without long pauses
+    - Mascot animations respond to content generation
+
+    The streaming is handled by:
+
+    ```typescript
+    const stream = await letta_client.agents.messages.createStream(agent_id, {
+      messages: [{ role: "user", content: input }],
+      streamTokens: true,
+    });
+    ```
+
+  </Step>
+
+  <Step title="Test multi-turn conversation">
+
+    Send follow-up messages to test context retention:
+
+    ```
+    User: Hello, introduce yourself.
+    Assistant: Hello! I'm Dashi, your AI assistant...
+    User: What can you help me with?
+    Assistant: I can help you with various tasks...
+    ```
+
+    The agent should maintain conversation context across messages.
+
+  </Step>
+</Steps>
+
+### Expected chat behavior
+
+<Check>
+  Chat input field appears when chat mode is activated
+</Check>
+
+<Check>
+  User messages appear immediately after sending
+</Check>
+
+<Check>
+  AI responses stream in real-time
+</Check>
+
+<Check>
+  Context is maintained across conversation turns
+</Check>
+
+<Check>
+  No more than 1-2 seconds initial response time
+</Check>
+
+## API integration testing
+
+Test the underlying API integrations separately.
+
+### Groq API testing
+
+Verify the Groq speech-to-text API works correctly:
+
+<Steps>
+  <Step title="Test environment variable loading">
+
+    Check that the Groq client initializes correctly:
+
+    ```rust src-tauri/src/audio.rs
+    let api_key = env::var("GROQ_API_KEY").expect("GROQ_API_KEY env variable not set");
+    AsyncGroqClient::new(api_key.to_string(), None).await
+    ```
+
+    If this fails, ensure `.env` file is present and contains `GROQ_API_KEY`.
+
+  </Step>
+
+  <Step title="Monitor API requests">
+
+    Check the console for Groq API interactions:
+
+    ```
+    Processing audio...
+    Audio processed, WAV size: 12345 bytes
+    Getting Groq client...
+    Sending request to Groq API...
+    Groq API Success. Transcription: [your text]
+    ```
+
+  </Step>
+
+  <Step title="Test error handling">
+
+    Try voice transcription with:
+    - No audio input (empty recording)
+    - Invalid API key (modified `.env`)
+    - Network disconnected
+
+    Expected behavior:
+    - Graceful error messages in console
+    - Application doesn't crash
+    - Error displayed to user
+
+  </Step>
+</Steps>
+
+### Letta API testing
+
+Verify the Letta agent integration:
+
+<Steps>
+  <Step title="Test agent connectivity">
+
+    Ensure the Letta server is accessible:
+
+    ```bash
+    curl http://localhost:8283
+    ```
+
+    If the server is not running, start it before testing chat functionality.
+
+  </Step>
+
+  <Step title="Verify agent ID">
+
+    Confirm the agent ID in `src/lib/letta.ts` is valid:
+
+    ```typescript
+    const agent_id = "agent-4d2e89d5-098b-469e-abe7-a671b4fed302";
+    ```
+
+    Replace with your agent ID if using a custom Letta agent.
+
+  </Step>
+
+  <Step title="Test streaming responses">
+
+    Send a long message and verify:
+    - Response streams token by token
+    - Connection doesn't time out
+    - Full response completes successfully
+
+  </Step>
+</Steps>
+
+## Audio processing testing
+
+Test the audio pipeline processing.
+
+### Audio format verification
+
+The audio processor in `src-tauri/src/audio.rs` converts raw audio to WAV format:
+
+```rust
+let spec = hound::WavSpec {
+    channels: 1,
+    sample_rate: 16000,
+    bits_per_sample: 16,
+    sample_format: SampleFormat::Int,
+};
+```
+
+<Note>
+  The Whisper model requires 16kHz mono audio with 16-bit depth. Other formats may cause transcription errors.
+</Note>
+
+### Test audio scenarios
+
+<Test>
+  <title>Clear speech in quiet environment</title>
+
+  Speak clearly with minimal background noise. Expect high transcription accuracy (95%+).
+
+</Test>
+
+<Test>
+  <title>Brief phrases</title>
+
+  Record short phrases under 5 seconds. Expect fast transcription (under 2 seconds latency).
+
+</Test>
+
+<Test>
+  <title>Longer speech</title>
+
+  Record sentences or paragraphs. Verify that longer audio transcribes correctly without timeout.
+
+</Test>
+
+## Integration testing
+
+Test the full integration of all components.
+
+<Steps>
+  <Step title="Voice-to-conversation flow">
+
+    1. Activate voice mode
+    2. Record a question or statement
+    3. Wait for transcription to complete
+    4. Observe AI response generation
+
+    Expected: Seamless flow from audio → transcription → response
+
+  </Step>
+
+  <Step title="Voice and chat interactivity">
+
+    1. Use voice mode to ask a question
+    2. Switch to chat mode
+    3. Type a follow-up question
+    4. Verify context is preserved
+
+    Expected: Agent maintains context across voice and text inputs
+
+  </Step>
+
+  <Step title="Multiple recordings">
+
+    1. Record and transcribe multiple voice inputs
+    2. Verify each transcription is accurate
+    3. Check that transcription history displays correctly
+
+    Expected: Multiple recordings process independently without errors
+
+  </Step>
+</Steps>
+
+## Common testing scenarios
+
+### Scenario: First-time voice recording
+
+<Steps>
+  1. Open Dashi
+  2. Grant microphone permissions (prompt should appear)
+  3. Press `Cmd+Opt+V`
+  4. Record a test phrase
+  5. Verify transcription appears
+
+  <Warning>
+    If microphone permission is denied, voice mode will not activate. Check system privacy settings.
+  </Warning>
+
+</Steps>
+
+### Scenario: API key validation
+
+<Steps>
+  1. Create a `.env` file with an invalid API key
+  2. Restart the application
+  3. Attempt voice transcription
+  4. Observe the error message
+
+  Expected: Error message indicates API authentication failure
+
+</Steps>
+
+### Scenario: Network interruption
+
+<Steps>
+  1. Start voice transcription
+  2. Disconnect from the internet during recording
+  3. Observe the application behavior
+
+  Expected: Graceful error message, application doesn't crash
+
+</Steps>
+
+## Performance testing
+
+Monitor application performance during testing:
+
+### Metrics to observe
+
+<Table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Expected</th>
+      <th>How to measure</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Initial load time</td>
+      <td>< 5 seconds</td>
+      <td>Time from app launch to window open</td>
+    </tr>
+    <tr>
+      <td>Voice transcription latency</td>
+      <td>< 3 seconds</td>
+      <td>Time from recording stop to text appearance</td>
+    </tr>
+    <tr>
+      <td>Chat response latency</td>
+      <td>< 2 seconds</td>
+      <td>Time from message send to first token</td>
+    </tr>
+    <tr>
+      <td>Memory usage</td>
+      <td>< 200MB</td>
+      <td>System Activity Monitor / Task Manager</td>
+    </tr>
+  </tbody>
+</Table>
+
+## Next steps
+
+After completing testing:
+
+- [/development/troubleshooting](/development/troubleshooting) - Resolve any issues found during testing
+- [/features/voice-input](/features/voice-input) - Learn more about voice input implementation
+- [/technical/architecture](/technical/architecture) - Understand the architecture for better debugging

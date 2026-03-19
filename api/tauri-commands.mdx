@@ -1,0 +1,168 @@
+---
+title: Tauri Commands
+description: Backend Tauri commands for audio processing and speech-to-text
+
+---
+
+Dashi exposes two Tauri commands that handle audio processing and transcription. These commands run on the Rust backend and provide the core functionality for voice input.
+
+## transcribe
+
+Converts raw audio samples to text using Groq's Whisper Large V3 model.
+
+### Signature
+
+```rust
+pub async fn transcribe(audio: Vec<f32>) -> Result<String, String>
+```
+
+### Parameters
+
+<ParamField name="audio" type="Vec<f32>" required>
+
+Raw audio samples from the microphone. Each sample is a 32-bit float value between -1.0 and 1.0.
+
+</ParamField>
+
+### Returns
+
+<ResponseField name="Result<String, String>" type="Result">
+
+On success, returns the transcribed text as a `String`. On failure, returns an error message.
+
+</ResponseField>
+
+### Error Handling
+
+The command returns a `Result` type:
+
+- `Ok(String)` - Successful transcription with the transcribed text
+- `Err(String)` - Error message if the transcription fails
+
+For example:
+
+```rust
+Err("Failed to get response from Groq: API key invalid")
+```
+
+The command expects the `GROQ_API_KEY` environment variable to be set.
+
+### Configuration
+
+The transcription uses these fixed settings:
+
+- Model: `whisper-large-v3`
+- Language: `en`
+- Temperature: `0.7`
+
+<Expandable title="Internal Processing">
+
+The command processes audio in-memory:
+
+1. Raw f32 samples are converted to WAV format using `process_audio`
+2. WAV data is sent to Groq API via `speech_to_text` request
+3. Response text is extracted and returned
+
+The WAV specification used:
+
+```rust
+// from src-tauri/src/audio.rs:23-28
+let spec = hound::WavSpec {
+    channels: 1,
+    sample_rate: 16000,
+    bits_per_sample: 16,
+    sample_format: SampleFormat::Int,
+};
+```
+
+</Expandable>
+
+### Example
+
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+const audioSamples = [0.0, 0.1, -0.2, 0.3]; // f32 samples
+const transcription = await invoke<string>("transcribe", {
+  audio: audioSamples,
+});
+console.log(transcription);
+```
+
+---
+
+## process_audio
+
+Converts raw audio samples to WAV format in memory.
+
+### Signature
+
+```rust
+pub fn process_audio(audio: Vec<f32>) -> Result<Vec<u8>, String>
+```
+
+### Parameters
+
+<ParamField name="audio" type="Vec<f32>" required>
+
+Raw audio samples to encode as WAV. Each sample is a 32-bit float value.
+
+</ParamField>
+
+### Returns
+
+<ResponseField name="Result<Vec<u8>, String>" type="Result">
+
+On success, returns WAV file data as a byte vector. On failure, returns an error message.
+
+</ResponseField>
+
+### Error Handling
+
+Returns `Err(String)` if WAV encoding fails, such as invalid audio data or writer errors.
+
+### WAV Specification
+
+The function encodes audio with these specifications:
+
+- Channels: 1 (mono)
+- Sample Rate: 16000 Hz
+- Bits per Sample: 16
+- Sample Format: Integer (PCM)
+
+Float samples are converted to 16-bit integers:
+
+```rust
+let sample_i16 = (sample * 32767.0) as i16;
+```
+
+### Example
+
+```rust
+// Raw f32 audio
+let samples: Vec<f32> = vec![0.0, 0.5, -0.5, 0.0];
+
+// Convert to WAV bytes
+let wav_bytes = process_audio(samples)?;
+
+println!("WAV size: {} bytes", wav_bytes.len());
+```
+
+This command is primarily used internally by `transcribe` to prepare audio for the Groq API.
+
+---
+
+## Environment Variable
+
+The GROQ_API_KEY environment variable is required for transcription:
+
+```bash
+export GROQ_API_KEY=your_api_key_here
+```
+
+The client fetches this key on initialization:
+
+```rust
+let api_key = env::var("GROQ_API_KEY")
+    .expect("GROQ_API_KEY env variable not set");
+```

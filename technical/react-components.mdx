@@ -1,0 +1,324 @@
+---
+description: Learn about React components and hooks used in the Dashi frontend.
+---
+
+# React Components
+
+The Dashi frontend uses React components and custom hooks to manage UI state, animations, and user interactions.
+
+## AnimatedVectorBox
+
+The main UI component that renders the animated mascot and manages both voice and chat modes.
+
+```typescript
+// src/components/ui/dashimain.tsx
+interface AnimatedVectorBoxProps {
+  width?: number;
+  height?: number;
+  vectorPath?: string;
+  vectorPaths?: string[];
+  vectorColor?: string;
+  boxColor?: string;
+  borderRadius?: number;
+  leftMargin?: number;
+}
+
+export default function AnimatedVectorBox({
+  width = 100,
+  height = 100,
+  vectorPath = "",
+  vectorPaths = [],
+  boxColor = "black",
+  borderRadius = 16,
+  leftMargin = 20,
+}: AnimatedVectorBoxProps) {
+  const { startRecording, stopAndTranscribe, isRecording, error } = useVoiceRecorder();
+  // ... implementation
+}
+```
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `width` | `number` | 100 | Initial box width in pixels |
+| `height` | `number` | 100 | Box height in pixels |
+| `vectorPath` | `string` | `""` | Single SVG path for mascot |
+| `vectorPaths` | `string[]` | `[]` | Multiple SVG paths for mascot |
+| `boxColor` | `string` | `"black"` | Background color of the box |
+| `borderRadius` | `number` | 16 | Corner radius in pixels |
+| `leftMargin` | `number` | 20 | Left margin in pixels |
+
+### State Management
+
+The component manages multiple state variables:
+
+```typescript
+// Activation states
+const [isActivated, setIsActivated] = useState(false);
+const [isExpanded, setIsExpanded] = useState(false);
+const [isActivatedState, setIsActivatedState] = useState(false);
+const [hasMovedLeft, setHasMovedLeft] = useState(false);
+
+// Animation states
+const [isInitialAnimation, setIsInitialAnimation] = useState(true);
+const [isJsonAnimationComplete, setIsJsonAnimationComplete] = useState(false);
+const [isResetting, setIsResetting] = useState(false);
+
+// Chat states
+const [chatInput, setChatInput] = useState("");
+const [chatMessages, setChatMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
+
+// Voice states
+const [transcription, setTranscription] = useState<string | null>(null);
+const [voiceResponse, setVoiceResponse] = useState<string>("");
+const [isGeneratingVoiceResponse, setIsGeneratingVoiceResponse] = useState(false);
+```
+
+### Animation States
+
+Vector animations use Framer Motion's `useCycle`:
+
+```typescript
+const [anim1, cycle1] = useCycle(
+  { d: path1, fill: "#8CEBE5" },
+  { d: scalePath(path1, 1.2), fill: "#D500D8" }
+);
+
+const [anim2, cycle2] = useCycle(
+  { d: scalePath(path2, 1.2), fill: "#D500D8" },
+  { d: path2, fill: "#8CEBE5" }
+);
+```
+
+### Dynamic Styling
+
+Box dimensions and position change based on state:
+
+```typescript
+const currentWidth = isActivatedState ? 100 : isExpanded ? 300 : 100;
+const finalWidth = getVoiceResponseWidth();
+const chatModeWidth = isActivatedState ? 400 : finalWidth;
+const currentLeft = isActivatedState ? "calc(50% - 200px)" : "0px";
+```
+
+<Note>
+The component switches between default, voice mode, and chat mode based on keyboard shortcuts.
+</Note>
+
+### Keyboard Event Handlers
+
+```typescript
+// src/components/ui/dashimain.tsx
+const handleKeyDown = async (event: KeyboardEvent) => {
+  if (event.key === "Escape") {
+    handleReset();
+    return;
+  }
+
+  // Command + Option + T (chat mode)
+  const isTKey = event.key === "t" || event.key === "T" || event.keyCode === 84;
+  if ((event.metaKey || event.ctrlKey) && event.altKey && isTKey) {
+    if (isActivated && !isActivatedState) {
+      setIsActivatedState(true);
+      setIsExpanded(false);
+    }
+  }
+
+  // Command + Option + V (voice mode)
+  const isVKey = event.key === "v" || event.key === "V" || event.keyCode === 86;
+  if ((event.metaKey || event.ctrlKey) && event.altKey && isVKey) {
+    if (!isExpanded && !isActivatedState) {
+      setIsExpanded(true);
+    }
+    if (!isRecording) {
+      await startRecording();
+    }
+  }
+};
+```
+
+### Chat Interface
+
+Rendered conditionally when `isActivatedState` is true:
+
+```typescript
+{isActivatedState && (
+  <motion.div style={{ position: "absolute", top: "20px", width: "400px", height: "600px" }}>
+    <div style={{ overflowY: "auto", height: "420px" }}>
+      {chatMessages.map((message, index) => (
+        <div key={index} style={{ textAlign: message.isUser ? "right" : "left" }}>
+          <div style={{
+            backgroundColor: message.isUser ? "#8CEBE5" : "#D500D8",
+            color: message.isUser ? "#000" : "#fff",
+            borderRadius: "12px",
+            padding: "8px 12px",
+          }}>
+            {message.text}
+          </div>
+        </div>
+      ))}
+    </div>
+    <form onSubmit={handleChatSubmit}>
+      <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} />
+      <button type="submit">Send</button>
+    </form>
+  </motion.div>
+)}
+```
+
+## useVoiceRecorder
+
+Custom hook that manages audio recording and transcription.
+
+```typescript
+// src/lib/tts.ts
+interface UseVoiceRecorderResult {
+  isRecording: boolean;
+  error: string | null;
+  startRecording: () => Promise<void>;
+  stopAndTranscribe: () => Promise<string | null>;
+}
+
+export function useVoiceRecorder(): UseVoiceRecorderResult {
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // ... implementation
+}
+```
+
+### Return Values
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `isRecording` | `boolean` | Whether recording is active |
+| `error` | `string \| null` | Error message or null |
+| `startRecording` | `() => Promise<void>` | Begin recording |
+| `stopAndTranscribe` | `() => Promise<string \| null>` | Stop and transcribe |
+
+### startRecording
+
+Captures audio from the microphone:
+
+```typescript
+const startRecording = useCallback(async () => {
+  if (mediaRecorderRef.current?.state === "recording") {
+    setError("Recording is already in progress.");
+    return;
+  }
+  setError(null);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: "audio/webm",
+    });
+    audioChunksRef.current = [];
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      audioChunksRef.current.push(event.data);
+    });
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+  } catch (err: any) {
+    setError("Microphone access denied. Please enable it in your browser settings.");
+    setIsRecording(false);
+  }
+}, []);
+```
+
+### stopAndTranscribe
+
+Stops recording and transcribes audio:
+
+```typescript
+const stopAndTranscribe = useCallback(async (): Promise<string | null> => {
+  if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") {
+    setError("No active recording to stop.");
+    return null;
+  }
+  setError(null);
+  return new Promise((resolve, reject) => {
+    mediaRecorderRef.current!.addEventListener("stop", async () => {
+      try {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mediaRecorderRef.current!.mimeType,
+        });
+        audioChunksRef.current = [];
+        mediaRecorderRef.current!.stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+
+        const audioContext = new AudioContext({ sampleRate: 16000 });
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const pcmData = audioBuffer.getChannelData(0);
+        const audioSamples = Array.from(pcmData);
+
+        const transcription = await invoke<string>("transcribe", {
+          audio: audioSamples,
+        });
+        setIsRecording(false);
+        resolve(transcription);
+      } catch (err: any) {
+        setError("Failed to transcribe audio: " + err);
+        setIsRecording(false);
+        reject(err);
+      }
+    }, { once: true });
+    mediaRecorderRef.current!.stop();
+  });
+}, []);
+```
+
+<Steps>
+
+### Audio Processing Pipeline
+
+1. **Capture**: WebM audio chunks collected via `dataavailable` event
+2. **Convert**: WebM blob decoded to PCM using AudioContext
+3. **Resample**: 16000 Hz sample rate, mono channel
+4. **Normalize**: f32 samples converted to `Vec<f32>`
+5. **Invoke**: Sent to Tauri backend via `transcribe` command
+6. **Transcribe**: Groq Whisper returns text
+
+</Steps>
+
+## SVG Vector Paths
+
+Mascot rendered with gradient-filled SVG paths:
+
+```typescript
+const vectorPaths = [
+  "M34.4363 58.929C35.531 57.78 37.3466 57.6793 38.5633 58.7259...",
+  "M10.9998 46.0003C13.2089 46.0003 14.9998 47.7912 14.9998 50.0003...",
+  "M47.9998 46.0003C50.2089 46.0003 51.9998 47.7912 51.9998 50.0003...",
+  "M14.576 3.09992C22.7629 -0.37136 32.0812 -0.855216 39.5291 1.28742...",
+];
+```
+
+Gradient definition:
+
+```typescript
+<defs>
+  <linearGradient id="vectorGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#D500D8" />
+    <stop offset="100%" stopColor="#8CEBE5" />
+  </linearGradient>
+</defs>
+
+{vectorPaths.map((path, index) => (
+  <motion.path
+    key={index}
+    d={path}
+    fill="url(#vectorGradient)"
+    initial={{ pathLength: 0 }}
+    animate={{ pathLength: 1 }}
+    transition={{ duration: 1, ease: "easeInOut", delay: index * 0.2 }}
+  />
+))}
+```
+
+<Warning>
+Ensure microphone permissions are granted before calling `startRecording()`. Browsers may block audio capture without user interaction.
+</Warning>

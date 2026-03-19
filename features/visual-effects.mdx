@@ -1,0 +1,145 @@
+---
+description: Explore Dashi's animated mascot, visual feedback, and state transitions.
+---
+
+# Visual Effects
+
+Dashi features an animated mascot character with dynamic visual feedback, smooth state transitions, and engaging animations that provide clear feedback for every interaction.
+
+## Animated Mascot
+
+The Dashi mascot is a character built from multiple vector paths with a distinctive gradient design:
+
+- Gradient from magenta (#D500D8) to teal (#8CEBE5)
+- Multiple vector paths create the character's face and body
+- Paths animate to draw from 0% to 100% length on visibility
+- Each path delays by 0.2 seconds for sequential drawing effect
+- 60px × 60px size in active modes
+- 80% height in default mode
+
+## Vector Animations
+
+Dashi's mascot cycles through two vector animations every 1 second:
+
+<CardGroup>
+<Card title="Vector 1" description="Music note shape that animates between teal (#8CEBE5) and magenta (#D500D8)" />
+
+<Card title="Vector 2" description="Second music note that animates between magenta (#D500D8) and teal (#8CEBE5)" />
+</CardGroup>
+
+These animations create a dynamic, living appearance and indicate that Dashi is active and responsive.
+
+## Initial Animation
+
+When you first launch Dashi, a dramatic entrance animation plays:
+
+<Steps>
+### Lottie Introduction
+A 100px × 100px Lottie animation plays for 3 seconds, showing Dashi's character appearing.
+
+### Opacity Fade
+The main box fades from 30% to 10% opacity during the animation.
+
+### Completion
+After 3 seconds, the Lottie animation completes, and Dashi settles into its default state.
+</Steps>
+
+## State-Based Visuals
+
+Each interaction mode has unique visual characteristics:
+
+<Tabs>
+<TipItem label="Default State">
+- Box opacity: 10% (inactive) or 30% (activated)
+- Dashi position: 65% horizontal, 65% vertical
+- Mascot size: 80% height
+- Music notes: Hidden
+- Box width: 100px
+</TipItem>
+
+<TipItem label="Voice Recording">
+- Box width expands to 300px
+- Music notes animate next to Dashi
+- Recording gradient border appears (if in chat mode)
+- Glow effect using #D500D8 and #8CEBE5
+- Mascot remains visible until response starts
+</TipItem>
+
+<TipItem label="Voice Response">
+- Mascot moves to 60px fixed size
+- Response text streams alongside mascot
+- Text color: #8CEBE5 (teal)
+- Box width dynamically adjusts based on response length
+- Maximum width: 50% of screen
+</TipItem>
+
+<TipItem label="Chat Mode">
+- Box centers at calc(50% - 200px)
+- Width: 400px
+- Height: 600px
+- Mascot moves to top-right (30px from top)
+- Semi-transparent chatbox opacity: 0.3
+- Gradient border during recording
+</TipItem>
+</Tabs>
+
+## Voice Response Animation
+
+When Dashi generates a voice response:
+
+1. **Text Streams**: The response text appears character by character
+2. **Dynamic Width**: The container width adjusts as text grows
+3. **Color**: Response text uses the brand accent color #8CEBE5
+4. **Placeholder**: Shows "Generating response..." while waiting
+5. **Layout**: Dashi mascot appears to the left, text to the right
+
+## Transitions and Timing
+
+All visual transitions use consistent timing for a polished feel:
+
+- **State Changes**: 0.5 seconds (default) or 0.8 seconds (reset)
+- **Easing**: easeInOut for smooth acceleration and deceleration
+- **Opacity**: Matches transition duration
+- **Position**: Independent timing for left/top coordinates
+- **Mascot Draw**: 1 second per vector path
+- **Note Cycles**: 1 second between color transitions
+
+## Reset Animation
+
+Pressing Escape triggers a graceful reset sequence:
+
+1. Interface gradually fades to 0 opacity over 0.8 seconds
+2. All expanded states collapse
+3. Mascot moves back to default position
+4. Mascot opacity fades to 0.1
+5. Width and height return to default values
+6. After fade completes, all state variables reset
+
+<Tip>
+The reset animation ensures a clean visual transition between sessions, preventing jarring state changes.
+</Tip>
+
+## Visual Feedback Mechanisms
+
+<Note>
+Dashi provides clear visual feedback for every state:
+
+- **Recoding**: Music notes animate, colors cycle
+- **Transcribing**: Loading state, text preparation
+- **Generating**: "Generating response..." placeholder
+- **Streaming**: Character-by-character text appearance
+- **Idle**: Subtle continuous vector animations
+- **Reset**: Smooth fade out and position restoration
+
+These feedback mechanisms help you understand Dashi's current state at a glance.
+</Note>
+
+## Accessibility Considerations
+
+The visual effects support accessibility through:
+
+- High contrast colors (#8CEBE5 on black, #D500D8 on black)
+- Smooth, non-jarring transitions
+- Predictable animation timing
+- Clear state indicators
+- Semi-transparent overlays (0.3 opacity) maintain visibility of content

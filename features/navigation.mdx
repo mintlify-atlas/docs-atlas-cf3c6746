@@ -1,0 +1,134 @@
+---
+description: Master keyboard shortcuts and mode switching to navigate Dashi efficiently.
+---
+
+# Navigation
+
+Navigate Dashi's interface using keyboard shortcuts and mode switching. This guide covers all the ways to interact with Dashi and switch between different modes.
+
+## Keyboard Shortcuts
+
+Dashi provides intuitive keyboard commands for all interactions:
+
+<Accordion>
+<AccordionItem title="Cmd + Option + V">
+Activates voice mode. Hold to record your voice, release to stop recording and transcribe. This is the primary way to use voice input.
+
+**Works on:** Mac, Windows (Ctrl + Alt + V), Linux (Ctrl + Alt + V)
+</AccordionItem>
+
+<AccordionItem title="Cmd + Option + T">
+Switches to text chat mode. Opens the chat interface where you can type and send messages. Automatically disables voice expansion when activated.
+
+**Works on:** Mac, Windows (Ctrl + Alt + T), Linux (Ctrl + Alt + T)
+</AccordionItem>
+
+<AccordionItem title="Escape">
+Resets Dashi to default mode. Clears all active states including voice recording, chat mode, and expansions. Returns the interface to its initial resting state.
+
+**Works on:** All platforms
+</AccordionItem>
+</Accordion>
+
+## Mode Switching
+
+Dashi operates in three distinct modes:
+
+<CardGroup>
+<Card title="Default Mode" description="The initial state where Dashi appears with 10% opacity. Mouse interaction or keyboard commands activate Dashi." />
+
+<Card title="Voice Mode" description="Activated by Cmd+Option+V. Dashi expands to 300px width and displays animated music notes. Hold to record, release to process." />
+
+<Card title="Chat Mode" description="Activated by Cmd+Option+T. Dashi displays a 400px wide chat interface with conversation history and input field." />
+</CardGroup>
+
+## Mode Transitions
+
+Dashi smoothly transitions between modes:
+
+1. **Default → Voice Mode**: Press Cmd+Option+V. Dashi expands from 100px to 300px width.
+2. **Voice Mode → Chat Mode**: Press Cmd+Option+T. Voice expansion resets, chat interface opens.
+3. **Chat Mode → Default**: Press Escape. Chat fades out, Dashi returns to default position.
+4. **Any Mode → Default**: Press Escape at any time to reset.
+
+<Steps>
+### Activate Dashi
+Click on Dashi or use a keyboard shortcut to activate from default mode.
+
+### Choose Your Mode
+Press Cmd+Option+V for voice or Cmd+Option+T for text chat.
+
+### Interact
+Speak or type your message while in the selected mode.
+
+### Reset When Done
+Press Escape to return to default mode when finished.
+</Steps>
+
+## UI State Changes
+
+Each mode has distinct visual states:
+
+<Tabs>
+<TipItem label="Default Mode">
+- Dashi appears at 65% horizontal position with 10% opacity
+- Box width is 100px
+- Minimal visual activity
+- Animated vectors cycle colors every 1 second
+</TipItem>
+
+<TipItem label="Voice Mode">
+- Box width expands to 300px
+- Animated music notes appear next to Dashi
+- Recording indicator is visible
+- Dashi mascot is visible
+- Upon response, text displays alongside Dashi mascot
+</TipItem>
+
+<TipItem label="Chat Mode">
+- Box center positions to screen center (calc 50% - 200px)
+- Width becomes 400px
+- Height extends to 600px
+- Full chat interface appears
+- Semitransparent input field for typing
+- Scrollable message history
+</TipItem>
+</Tabs>
+
+## Position Transitions
+
+Dashi's mascot smoothly transitions positions:
+
+- **Default Mode**: Centered vertically and horizontally at 65% position
+- **Voice Mode**: Moves to left side (20px margin)
+- **Chat Mode**: Moves to top-right corner of chat interface
+
+All transitions use easeInOut timing with 0.5-second duration for smooth animations.
+
+## Reset Behavior
+
+Pressing Escape triggers a complete reset:
+
+1. Interface fades out over 0.8 seconds
+2. All messages are cleared
+3. Voice response text is removed
+4. Generation flags are reset
+5. All modes deactivate
+6. Dashi returns to default position and opacity
+
+<Tip>
+Use Escape whenever you want to start fresh or switch contexts. It's the universal reset key that returns Dashi to its initial state.
+</Tip>
+
+## Mode-Specific Behaviors
+
+<Note>
+Some behaviors change depending on the active mode:
+
+- In chat mode, voice expansion is automatically disabled
+- Voice mode only activates when not already in chat mode
+- Music notes only appear during voice mode without active response
+- Text input only available in chat mode
+
+These contextual behaviors ensure each mode works optimally for its intended use case.
+</Note>
